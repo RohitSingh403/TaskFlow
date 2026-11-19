@@ -1,0 +1,189 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { ApiError, api } from "@/lib/api";
+import { formatDuration, formatWhen, pretty } from "@/lib/format";
+import type { Attempt, Job, Queue } from "@/lib/types";
+import { useSession, useUi } from "@/stores/session";
+import { JobTable } from "./dashboard";
+import { JobStatusPill } from "@/components/status";
+import { Button, Card, EmptyState, SelectInput } from "@/components/ui";
+
+export function JobsPage() {
+  const projectId = useSession((state) => state.projectId);
+  const [params, setParams] = useSearchParams();
+  const page = Number(params.get("page") ?? "1");
+  const status = params.get("status") ?? "";
+  const queue = params.get("queue") ?? "";
+  const q = params.get("q") ?? "";
+  const query = new URLSearchParams({ page: String(page), limit: "20" });
+  if (status) query.set("status", status);
+  if (queue) query.set("queue", queue);
+  if (q) query.set("q", q);
+  const jobs = useQuery({
+    queryKey: ["jobs", projectId, query.toString()],
+    enabled: Boolean(projectId),
+    queryFn: () => api<Job[]>(`/projects/${projectId}/jobs?${query.toString()}`),
+  });
+  const queues = useQuery({
+    queryKey: ["queues", projectId],
+    enabled: Boolean(projectId),
+    queryFn: () => api<Queue[]>(`/projects/${projectId}/queues`),
+  });
+  if (!projectId) return <EmptyState title="Choose a project" body="Create a project before listing jobs." />;
+  const update = (key: string, value: string) => {
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    if (key !== "page") next.delete("page");
+    setParams(next);
+  };
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. A recovery sweep repairs missed updates.</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <SelectInput className="w-40" value={status} onChange={(event) => update("status", event.target.value)} aria-label="Status">
+          <option value="">All statuses</option>
+          {["waiting", "delayed", "active", "completed", "failed", "cancelled"].map((item) => <option key={item} value={item}>{item}</option>)}
+        </SelectInput>
+        <SelectInput className="w-44" value={queue} onChange={(event) => update("queue", event.target.value)} aria-label="Queue">
+          <option value="">All queues</option>
+          {(queues.data?.data ?? []).map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}
+        </SelectInput>
+        <input
+          defaultValue={q}
+          aria-label="Search"
+          placeholder="Job id or name"
+          className="h-10 w-56 rounded-[10px] border border-line bg-bg px-3 text-[13px]"
+          onKeyDown={(event) => {
+            if (event.key === "Enter") update("q", event.currentTarget.value);
+          }}
+        />
+      </div>
+      <Card>
+        {jobs.isLoading ? <p className="p-4 text-[13px] text-muted">Loading jobs…</p> : <JobTable jobs={jobs.data?.data ?? []} />}
+      </Card>
+      <div className="flex items-center justify-between text-[13px] text-muted">
+        <span>{jobs.data?.meta.total ?? 0} jobs</span>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => update("page", String(page - 1))}>Previous</Button>
+          <Button variant="secondary" size="sm" disabled={page >= (jobs.data?.meta.totalPages ?? 1)} onClick={() => update("page", String(page + 1))}>Next</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function JobDetailPage() {
+  const { jobId = "" } = useParams();
+  const projectId = useSession((state) => state.projectId);
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const job = useQuery({
+    queryKey: ["job", projectId, jobId],
+    enabled: Boolean(projectId && jobId),
+    queryFn: () => api<Job>(`/projects/${projectId}/jobs/${jobId}`),
+  });
+  const attempts = useQuery({
+    queryKey: ["attempts", projectId, jobId],
+    enabled: Boolean(projectId && jobId),
+    queryFn: () => api<Attempt[]>(`/projects/${projectId}/jobs/${jobId}/attempts`),
+  });
+  const action = useMutation({
+    mutationFn: async (kind: "retry" | "cancel" | "remove") => {
+      const path = kind === "remove" ? `/projects/${projectId}/jobs/${jobId}` : `/projects/${projectId}/jobs/${jobId}/${kind}`;
+      return api<Job>(path, { method: kind === "remove" ? "DELETE" : "POST" });
+    },
+    onSuccess: (result, kind) => {
+      toast("success", kind === "retry" ? "Job queued for another attempt" : `Job ${result.data.status}`);
+      void client.invalidateQueries({ queryKey: ["job", projectId, jobId] });
+      void client.invalidateQueries({ queryKey: ["attempts", projectId, jobId] });
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Action failed"),
+  });
+  if (job.isLoading) return <p className="text-[13px] text-muted">Loading job…</p>;
+  if (!job.data) return <EmptyState title="Job not found" body="This job is not in the current project." />;
+  const data = job.data.data;
+  return (
+    <div className="space-y-4">
+      <Link to="/jobs" className="text-[12px] text-muted hover:text-ink">Back to jobs</Link>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-[28px] font-semibold tracking-tight">{data.name}</h1>
+            <JobStatusPill status={data.status} />
+          </div>
+          <p className="mono mt-1 text-[12px] text-muted">{data.id} · {data.queue} · {data.traceId}</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="secondary" disabled={data.status !== "failed" || action.isPending} onClick={() => action.mutate("retry")}>Retry</Button>
+          <Button variant="secondary" disabled={!["waiting", "delayed"].includes(data.status) || action.isPending} onClick={() => action.mutate("cancel")}>Cancel</Button>
+          <Button variant="danger" disabled={data.status === "active" || action.isPending} onClick={() => action.mutate("remove")}>Remove</Button>
+        </div>
+      </div>
+      <div className="grid gap-3 md:grid-cols-4">
+        {[
+          ["Attempts", `${data.attemptsMade}/${data.maxAttempts}`],
+          ["Duration", formatDuration(data.durationMs)],
+          ["Priority", data.priority],
+          ["Backoff", `${data.backoffType} ${data.backoffDelayMs} ms`],
+        ].map(([label, value]) => (
+          <Card key={label} className="px-4 py-3">
+            <div className="text-[12px] text-muted">{label}</div>
+            <div className="mt-1 text-[15px] font-medium">{value}</div>
+          </Card>
+        ))}
+      </div>
+      <div className="grid gap-3 xl:grid-cols-2">
+        <JsonCard title="Payload" value={data.payload} />
+        <JsonCard title={data.error ? "Error" : "Result"} value={data.error ?? data.result ?? { pending: true }} danger={Boolean(data.error)} />
+      </div>
+      <Card className="p-4">
+        <h2 className="text-base font-semibold">Attempts</h2>
+        <ol className="mt-4 space-y-4 border-l border-line pl-4">
+          {(attempts.data?.data ?? []).length === 0 ? <li className="text-[13px] text-muted">No attempt has started.</li> : null}
+          {(attempts.data?.data ?? []).map((attempt) => (
+            <li key={attempt.attemptNumber} className="relative">
+              <span className="absolute top-1 -left-[21px] h-2.5 w-2.5 rounded-full bg-accent" />
+              <div className="flex flex-wrap items-center gap-2 text-[13px]">
+                <span className="font-medium">Attempt {attempt.attemptNumber}</span>
+                <span className="capitalize text-muted">{attempt.status}</span>
+                <span className="text-faint">{formatDuration(attempt.durationMs)}</span>
+              </div>
+              <p className="mt-1 text-[12px] text-muted">{formatWhen(attempt.startedAt)} → {formatWhen(attempt.finishedAt)} {attempt.workerId ? `· ${attempt.workerId}` : ""}</p>
+              {attempt.errorMessage ? <pre className="mono mt-2 overflow-auto rounded-[10px] bg-bg p-3 text-[12px] text-danger">{attempt.errorMessage}{attempt.errorStack ? `\n\n${attempt.errorStack}` : ""}</pre> : null}
+            </li>
+          ))}
+        </ol>
+      </Card>
+    </div>
+  );
+}
+
+function JsonCard({ title, value, danger = false }: { title: string; value: unknown; danger?: boolean }) {
+  const [copied, setCopied] = useState(false);
+  const text = pretty(value);
+  return (
+    <Card className="p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-base font-semibold">{title}</h2>
+        <button
+          className="text-[12px] text-muted hover:text-ink"
+          onClick={async () => {
+            await navigator.clipboard.writeText(text);
+            setCopied(true);
+          }}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre className={`mono max-h-80 overflow-auto text-[12px] leading-5 ${danger ? "text-danger" : "text-ink/90"}`}>{text}</pre>
+    </Card>
+  );
+}

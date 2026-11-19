@@ -1,0 +1,317 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { ApiError, api } from "@/lib/api";
+import { formatWhen } from "@/lib/format";
+import type { ApiKey, Project } from "@/lib/types";
+import { useSession, useUi } from "@/stores/session";
+import { Button, Card, Dialog, EmptyState, Field, TextInput } from "@/components/ui";
+
+const SCOPES = ["jobs:read", "jobs:write", "queues:read", "queues:write", "workers:read", "logs:read", "analytics:read"];
+
+export function ApiKeysPage() {
+  const projectId = useSession((state) => state.projectId);
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [secret, setSecret] = useState("");
+  const keys = useQuery({
+    queryKey: ["api-keys", projectId],
+    enabled: Boolean(projectId),
+    queryFn: () => api<ApiKey[]>(`/projects/${projectId}/api-keys`),
+  });
+  const create = useMutation({
+    mutationFn: (body: { name: string; description: string; scopes: string[] }) =>
+      api<ApiKey>(`/projects/${projectId}/api-keys`, { method: "POST", body: JSON.stringify(body) }),
+    onSuccess: (result) => {
+      setSecret(result.data.secret ?? "");
+      setOpen(false);
+      void client.invalidateQueries({ queryKey: ["api-keys", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not create the key"),
+  });
+  const revoke = useMutation({
+    mutationFn: (id: string) => api(`/projects/${projectId}/api-keys/${id}/revoke`, { method: "POST" }),
+    onSuccess: () => {
+      toast("success", "API key revoked");
+      void client.invalidateQueries({ queryKey: ["api-keys", projectId] });
+    },
+  });
+  if (!projectId) return <EmptyState title="Choose a project" body="API keys are bound to one project." />;
+  return (
+    <div className="space-y-4">
+      <div className="flex items-end justify-between">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-tight">API keys</h1>
+          <p className="text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once.</p>
+        </div>
+        <Button onClick={() => setOpen(true)}>Create key</Button>
+      </div>
+      {secret ? (
+        <Card className="border-warning/40 p-4">
+          <h2 className="font-semibold">Copy this secret now</h2>
+          <p className="mt-1 text-[13px] text-muted">It will not be shown again. Requests use <span className="mono">Authorization: Bearer</span>.</p>
+          <div className="mt-3 flex gap-2">
+            <code className="mono flex-1 overflow-auto rounded-[10px] bg-bg px-3 py-2 text-[12px]">{secret}</code>
+            <Button variant="secondary" onClick={() => navigator.clipboard.writeText(secret)}>Copy</Button>
+          </div>
+        </Card>
+      ) : null}
+      <Card className="overflow-x-auto">
+        <table className="w-full min-w-[680px] text-left text-[13px]">
+          <thead className="text-[11px] tracking-wide text-faint uppercase">
+            <tr className="border-b border-line">{["Name", "Prefix", "Scopes", "Last used", "Status", ""].map((heading) => <th key={heading} className="px-4 py-2 font-medium">{heading}</th>)}</tr>
+          </thead>
+          <tbody>
+            {(keys.data?.data ?? []).map((key) => (
+              <tr key={key.id} className="border-b border-line/70">
+                <td className="px-4 py-2">{key.name}</td>
+                <td className="mono px-4 py-2 text-[12px]">{key.prefix}…</td>
+                <td className="px-4 py-2 text-muted">{key.scopes.join(", ")}</td>
+                <td className="px-4 py-2 text-muted">{formatWhen(key.lastUsedAt)}</td>
+                <td className="px-4 py-2 capitalize">{key.status}</td>
+                <td className="px-4 py-2 text-right">{key.status === "active" ? <Button size="sm" variant="danger" onClick={() => revoke.mutate(key.id)}>Revoke</Button> : null}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+      <Dialog open={open} title="Create API key" onClose={() => setOpen(false)}>
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            create.mutate({
+              name: String(form.get("name") ?? ""),
+              description: String(form.get("description") ?? ""),
+              scopes: SCOPES.filter((scope) => form.get(scope) === "on"),
+            });
+          }}
+        >
+          <Field label="Name"><TextInput name="name" required minLength={2} /></Field>
+          <Field label="Description"><TextInput name="description" /></Field>
+          <fieldset>
+            <legend className="mb-2 text-[12px] text-muted">Scopes</legend>
+            <div className="grid grid-cols-2 gap-2 text-[13px]">
+              {SCOPES.map((scope) => (
+                <label key={scope} className="flex items-center gap-2">
+                  <input type="checkbox" name={scope} defaultChecked />
+                  {scope}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <div className="flex justify-end"><Button type="submit" loading={create.isPending}>Create</Button></div>
+        </form>
+      </Dialog>
+    </div>
+  );
+}
+
+export function DocsPage() {
+  const projectId = useSession((state) => state.projectId);
+  const rows = [
+    ["POST", "/auth/register", "Create an account and a refresh cookie"],
+    ["POST", "/auth/login", "Start a session"],
+    ["POST", "/auth/refresh", "Rotate the refresh token and return an access token"],
+    ["POST", "/projects", "Create a project and its default queues"],
+    ["POST", "/projects/:id/jobs", "Submit a job. Returns before execution."],
+    ["GET", "/projects/:id/jobs/:jobId", "Read status, result, and error"],
+    ["POST", "/projects/:id/jobs/:jobId/retry", "Retry a failed job"],
+    ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
+  ];
+  return (
+    <div className="space-y-4">
+      <h1 className="text-[28px] font-semibold tracking-tight">API documentation</h1>
+      <p className="max-w-2xl text-[13px] leading-5 text-muted">
+        Base path <span className="mono text-ink">/api/v1</span>. Browser sessions send the access token as a bearer token. Automation sends an API key the same way.
+        Send <span className="mono text-ink">Idempotency-Key</span> when a client retry must not create a second job.
+      </p>
+      <Card className="overflow-x-auto">
+        <table className="w-full min-w-[640px] text-left text-[13px]">
+          <tbody>
+            {rows.map(([method, path, purpose]) => (
+              <tr key={path} className="border-b border-line/70">
+                <td className="px-4 py-2 font-medium text-accent">{method}</td>
+                <td className="mono px-4 py-2 text-[12px]">/api/v1{path}</td>
+                <td className="px-4 py-2 text-muted">{purpose}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
+      <Card className="p-4">
+        <h2 className="font-semibold">Submit a job</h2>
+        <pre className="mono mt-3 overflow-auto text-[12px] leading-5 text-ink/90">{`curl -X POST /api/v1/projects/${projectId ?? "proj_..."}/jobs \\
+  -H "Authorization: Bearer $TASKFLOW_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "Idempotency-Key: welcome-user-123" \\
+  -d '{
+    "queue": "emails",
+    "name": "send-email",
+    "payload": {
+      "to": "user@example.com",
+      "subject": "Welcome",
+      "body": "Glad you are here."
+    }
+  }'`}</pre>
+      </Card>
+    </div>
+  );
+}
+
+export function ProjectSettingsPage() {
+  const projectId = useSession((state) => state.projectId);
+  const setProjectId = useSession((state) => state.setProjectId);
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const project = useQuery({
+    queryKey: ["project", projectId],
+    enabled: Boolean(projectId),
+    queryFn: () => api<Project>(`/projects/${projectId}`),
+  });
+  const save = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api<Project>(`/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: () => {
+      toast("success", "Project saved");
+      void client.invalidateQueries({ queryKey: ["project", projectId] });
+      void client.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (reason) => toast("error", reason instanceof Error ? reason.message : "Could not save"),
+  });
+  const remove = useMutation({
+    mutationFn: () => api(`/projects/${projectId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      setProjectId(null);
+      toast("success", "Project deleted");
+      void client.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+  if (!project.data) return <EmptyState title="No project selected" body="Create a project from the dashboard." />;
+  const data = project.data.data;
+  return (
+    <div className="max-w-2xl space-y-4">
+      <h1 className="text-[28px] font-semibold tracking-tight">Project settings</h1>
+      <Card className="p-4">
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            save.mutate({
+              name: String(form.get("name") ?? ""),
+              description: String(form.get("description") ?? ""),
+              environment: String(form.get("environment") ?? data.environment),
+              defaultJobSettings: {
+                maxAttempts: Number(form.get("maxAttempts")),
+                backoffType: String(form.get("backoffType")),
+                backoffDelayMs: Number(form.get("backoffDelayMs")),
+                timeoutMs: Number(form.get("timeoutMs")),
+                priority: String(form.get("priority")),
+              },
+            });
+          }}
+        >
+          <Field label="Name"><TextInput name="name" defaultValue={data.name} required /></Field>
+          <Field label="Description"><TextInput name="description" defaultValue={data.description} /></Field>
+          <Field label="Environment">
+            <select name="environment" defaultValue={data.environment} className="h-10 w-full rounded-[10px] border border-line bg-bg px-3">
+              <option value="development">Development</option>
+              <option value="production">Production</option>
+            </select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Default attempts"><TextInput name="maxAttempts" defaultValue={String(data.defaultJobSettings.maxAttempts)} /></Field>
+            <Field label="Default priority">
+              <select name="priority" defaultValue={data.defaultJobSettings.priority} className="h-10 w-full rounded-[10px] border border-line bg-bg px-3">
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+            </Field>
+            <Field label="Backoff">
+              <select name="backoffType" defaultValue={data.defaultJobSettings.backoffType} className="h-10 w-full rounded-[10px] border border-line bg-bg px-3">
+                <option value="exponential">Exponential</option>
+                <option value="fixed">Fixed</option>
+              </select>
+            </Field>
+            <Field label="Backoff base ms"><TextInput name="backoffDelayMs" defaultValue={String(data.defaultJobSettings.backoffDelayMs)} /></Field>
+            <Field label="Timeout ms"><TextInput name="timeoutMs" defaultValue={String(data.defaultJobSettings.timeoutMs)} /></Field>
+          </div>
+          <p className="text-[12px] text-muted">Usage: {data.usage?.jobs ?? 0} jobs · {data.usage?.failedJobs ?? 0} failed · {data.usage?.activeKeys ?? 0} active keys</p>
+          <Button type="submit" loading={save.isPending}>Save</Button>
+        </form>
+      </Card>
+      <Card className="border-danger/40 p-4">
+        <h2 className="font-semibold">Delete project</h2>
+        <p className="mt-1 text-[13px] text-muted">Queues are paused and hidden. Job history remains in MongoDB.</p>
+        <Button className="mt-3" variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>Delete project</Button>
+      </Card>
+    </div>
+  );
+}
+
+export function AccountPage() {
+  const user = useSession((state) => state.user);
+  const clear = useSession((state) => state.clear);
+  const setSession = useSession((state) => state.setSession);
+  const accessToken = useSession((state) => state.accessToken);
+  const toast = useUi((state) => state.toast);
+  return (
+    <div className="max-w-lg space-y-4">
+      <h1 className="text-[28px] font-semibold tracking-tight">Account</h1>
+      <Card className="space-y-3 p-4">
+        <form
+          className="space-y-3"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const name = String(new FormData(event.currentTarget).get("name") ?? "");
+            const updated = await api<typeof user>("/auth/me", { method: "PATCH", body: JSON.stringify({ name }) });
+            if (updated.data && accessToken) setSession(updated.data, accessToken);
+            toast("success", "Profile updated");
+          }}
+        >
+          <Field label="Name"><TextInput name="name" defaultValue={user?.name} required /></Field>
+          <Field label="Email"><TextInput value={user?.email ?? ""} disabled /></Field>
+          <Button type="submit">Save profile</Button>
+        </form>
+      </Card>
+      <Card className="space-y-3 p-4">
+        <h2 className="font-semibold">Change password</h2>
+        <form
+          className="space-y-3"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const form = new FormData(event.currentTarget);
+            try {
+              await api("/auth/change-password", {
+                method: "POST",
+                body: JSON.stringify({
+                  currentPassword: String(form.get("currentPassword") ?? ""),
+                  newPassword: String(form.get("newPassword") ?? ""),
+                }),
+              });
+              clear();
+              toast("success", "Password updated. Sign in again.");
+            } catch (reason) {
+              toast("error", reason instanceof Error ? reason.message : "Could not change the password");
+            }
+          }}
+        >
+          <Field label="Current password"><TextInput name="currentPassword" type="password" required /></Field>
+          <Field label="New password"><TextInput name="newPassword" type="password" required minLength={10} /></Field>
+          <Button type="submit" variant="secondary">Update password</Button>
+        </form>
+      </Card>
+      <Button
+        variant="ghost"
+        onClick={async () => {
+          await api("/auth/logout", { method: "POST" });
+          clear();
+        }}
+      >
+        Log out
+      </Button>
+    </div>
+  );
+}

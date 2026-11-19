@@ -1,0 +1,33 @@
+{
+  "name": "taskflow",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Reliable background processing, made observable.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,worker,web -c magenta,green,cyan \"npm run dev -w @taskflow/api\" \"npm run dev -w @taskflow/worker\" \"npm run dev -w @taskflow/web\"",
+    "dev:api": "npm run dev -w @taskflow/api",
+    "dev:worker": "npm run dev -w @taskflow/worker",
+    "dev:web": "npm run dev -w @taskflow/web",
+    "typecheck": "tsc -p packages/shared --noEmit && tsc -p packages/server --noEmit && tsc -p apps/api --noEmit && tsc -p apps/worker --noEmit && tsc -p apps/web --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build:web": "npm run build -w @taskflow/web",
+    "seed": "tsx scripts/seed.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.1",
+    "@types/supertest": "^6.0.3",
+    "concurrently": "^9.2.1",
+    "supertest": "^7.1.4",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

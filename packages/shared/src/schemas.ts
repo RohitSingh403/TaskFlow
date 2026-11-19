@@ -1,0 +1,135 @@
+import { z } from "zod";
+import {
+  API_SCOPES,
+  BACKOFF_TYPES,
+  ENVIRONMENTS,
+  PRIORITY_LABELS,
+  QUEUE_NAME_PATTERN,
+} from "./constants.js";
+import { isHandlerName } from "./handlers.js";
+
+export const registerSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  email: z.string().trim().email().max(200),
+  password: z
+    .string()
+    .min(10)
+    .max(200)
+    .regex(/[A-Za-z]/, "Password must include a letter")
+    .regex(/[0-9]/, "Password must include a number"),
+});
+
+export const loginSchema = z.object({
+  email: z.string().trim().email().max(200),
+  password: z.string().min(1).max(200),
+});
+
+export const updateProfileSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+});
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: registerSchema.shape.password,
+});
+
+export const projectSchema = z.object({
+  name: z.string().trim().min(2).max(60),
+  description: z.string().trim().max(280).optional(),
+  environment: z.enum(ENVIRONMENTS).default("development"),
+});
+
+export const updateProjectSchema = z
+  .object({
+    name: z.string().trim().min(2).max(60).optional(),
+    description: z.string().trim().max(280).optional(),
+    environment: z.enum(ENVIRONMENTS).optional(),
+    defaultJobSettings: z
+      .object({
+        maxAttempts: z.number().int().min(1).max(10),
+        backoffType: z.enum(BACKOFF_TYPES),
+        backoffDelayMs: z.number().int().min(0).max(86_400_000),
+        timeoutMs: z.number().int().min(1_000).max(15 * 60 * 1000),
+        priority: z.enum(PRIORITY_LABELS),
+      })
+      .optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
+
+export const queueSchema = z.object({
+  name: z.string().trim().regex(QUEUE_NAME_PATTERN, "Use a lowercase queue name, such as emails or image-resize"),
+  description: z.string().trim().max(280).optional(),
+  concurrency: z.number().int().min(1).max(100).default(5),
+  maxWaiting: z.number().int().min(1).max(100_000).default(10_000),
+  rateLimit: z
+    .object({
+      max: z.number().int().min(1).max(10_000),
+      duration: z.number().int().min(100).max(3_600_000),
+    })
+    .nullable()
+    .optional(),
+});
+
+export const updateQueueSchema = z
+  .object({
+    description: z.string().trim().max(280).optional(),
+    concurrency: z.number().int().min(1).max(100).optional(),
+    maxWaiting: z.number().int().min(1).max(100_000).optional(),
+    rateLimit: z
+      .object({
+        max: z.number().int().min(1).max(10_000),
+        duration: z.number().int().min(100).max(3_600_000),
+      })
+      .nullable()
+      .optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
+
+export const submitJobSchema = z.object({
+  queue: z.string().trim().regex(QUEUE_NAME_PATTERN),
+  name: z.string().trim().refine(isHandlerName, "Unknown job handler"),
+  payload: z.record(z.unknown()),
+  priority: z.enum(PRIORITY_LABELS).optional(),
+  delayMs: z.number().int().min(0).max(30 * 24 * 60 * 60 * 1000).optional(),
+  maxAttempts: z.number().int().min(1).max(10).optional(),
+  backoffType: z.enum(BACKOFF_TYPES).optional(),
+  backoffDelayMs: z.number().int().min(0).max(86_400_000).optional(),
+  timeoutMs: z.number().int().min(1_000).max(15 * 60 * 1000).optional(),
+  idempotencyKey: z.string().trim().min(8).max(200).optional(),
+  metadata: z.record(z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+});
+
+export const createApiKeySchema = z.object({
+  name: z.string().trim().min(2).max(60),
+  description: z.string().trim().max(280).optional(),
+  scopes: z.array(z.enum(API_SCOPES)).min(1).default([...API_SCOPES]),
+});
+
+export const listJobsQuerySchema = z.object({
+  status: z.enum(["waiting", "delayed", "active", "completed", "failed", "cancelled"]).optional(),
+  queue: z.string().trim().max(80).optional(),
+  priority: z.enum(PRIORITY_LABELS).optional(),
+  name: z.string().trim().max(80).optional(),
+  jobId: z.string().trim().max(80).optional(),
+  q: z.string().trim().max(120).optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const analyticsQuerySchema = z.object({
+  range: z.enum(["24h", "7d", "30d"]).optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+});
+
+export const listLogsQuerySchema = z.object({
+  level: z.enum(["debug", "info", "warn", "error"]).optional(),
+  jobId: z.string().trim().max(80).optional(),
+  q: z.string().trim().max(160).optional(),
+  from: z.string().datetime().optional(),
+  to: z.string().datetime().optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
