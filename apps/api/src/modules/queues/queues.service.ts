@@ -1,0 +1,132 @@
+import { AuditLog, bullQueueName, createId, getBullQueue, QueueConfig, type ProjectDoc, type QueueDoc } from "@taskflow/server";
+import { AppError } from "../../errors.js";
+import { publish } from "../../infrastructure.js";
+
+export async function listQueues(project: ProjectDoc) {
+  return QueueConfig.find({ projectId: project._id, deletedAt: null }).sort({ name: 1 });
+}
+
+export async function createQueue(
+  project: ProjectDoc,
+  input: {
+    name: string;
+    description?: string;
+    concurrency: number;
+    maxWaiting: number;
+    rateLimit?: { max: number; duration: number } | null;
+  },
+  actorId: string,
+) {
+  const existing = await QueueConfig.findOne({ projectId: project._id, name: input.name, deletedAt: null });
+  if (existing) throw new AppError(409, "QUEUE_EXISTS", "A queue with that name already exists in this project");
+  const queue = await QueueConfig.create({
+    publicId: createId("queue"),
+    projectId: project._id,
+    projectPublicId: project.publicId,
+    name: input.name,
+    description: input.description ?? "",
+    concurrency: input.concurrency,
+    maxWaiting: input.maxWaiting,
+    rateLimit: input.rateLimit ?? null,
+    isPaused: false,
+    bullQueueName: bullQueueName(project.publicId, input.name),
+  });
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: "user",
+    actorId,
+    action: "queue.created",
+    targetType: "queue",
+    targetId: queue.publicId,
+    metadata: { name: queue.name },
+  });
+  return queue;
+}
+
+export async function updateQueue(project: ProjectDoc, queue: QueueDoc, input: Record<string, unknown>, actorId: string) {
+  if (typeof input.description === "string") queue.description = input.description;
+  if (typeof input.concurrency === "number") queue.concurrency = input.concurrency;
+  if (typeof input.maxWaiting === "number") queue.maxWaiting = input.maxWaiting;
+  if ("rateLimit" in input) queue.rateLimit = (input.rateLimit as QueueDoc["rateLimit"]) ?? null;
+  await queue.save();
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: "user",
+    actorId,
+    action: "queue.updated",
+    targetType: "queue",
+    targetId: queue.publicId,
+    metadata: { fields: Object.keys(input) },
+  });
+  return queue;
+}
+
+export async function setQueuePaused(project: ProjectDoc, queue: QueueDoc, paused: boolean, actorId: string) {
+  queue.isPaused = paused;
+  await queue.save();
+  const bull = getBullQueue(queue.bullQueueName);
+  if (paused) await bull.pause();
+  else await bull.resume();
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: "user",
+    actorId,
+    action: paused ? "queue.paused" : "queue.resumed",
+    targetType: "queue",
+    targetId: queue.publicId,
+    metadata: { name: queue.name },
+  });
+  await publish({
+    type: "queue.updated",
+    projectId: project.publicId,
+    data: { queueId: queue.publicId, isPaused: paused },
+  });
+  return queue;
+}
+
+export async function deleteQueue(project: ProjectDoc, queue: QueueDoc, actorId: string) {
+  const stats = await queueStats(queue);
+  if (stats.waiting + stats.active + stats.delayed > 0) {
+    throw new AppError(409, "QUEUE_NOT_EMPTY", "Pause is not enough: drain waiting and active jobs before deleting this queue");
+  }
+  queue.deletedAt = new Date();
+  queue.isPaused = true;
+  await queue.save();
+  await getBullQueue(queue.bullQueueName).pause();
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: "user",
+    actorId,
+    action: "queue.deleted",
+    targetType: "queue",
+    targetId: queue.publicId,
+    metadata: { name: queue.name },
+  });
+}
+
+export async function queueStats(queue: QueueDoc) {
+  const counts = await getBullQueue(queue.bullQueueName).getJobCounts(
+    "waiting",
+    "active",
+    "completed",
+    "failed",
+    "delayed",
+    "paused",
+    "prioritized",
+    "waiting-children",
+  );
+  return {
+    waiting: (counts.waiting ?? 0) + (counts.prioritized ?? 0) + (counts["waiting-children"] ?? 0),
+    active: counts.active ?? 0,
+    completed: counts.completed ?? 0,
+    failed: counts.failed ?? 0,
+    delayed: counts.delayed ?? 0,
+    paused: counts.paused ?? 0,
+  };
+}
+
+export async function findQueue(project: ProjectDoc, queueId: string) {
+  const queue = await QueueConfig.findOne({ projectId: project._id, publicId: queueId, deletedAt: null });
+  if (!queue) throw new AppError(404, "QUEUE_NOT_FOUND", "Queue not found");
+  return queue;
+}

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.local
+.env.*.local
+*.log
+dump.rdb
+.DS_Store
+.vite/
+tmp/
+*.tsbuildinfo
+.idea/
+.vscode/

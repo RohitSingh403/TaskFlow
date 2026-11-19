@@ -1,0 +1,17 @@
+{
+  "name": "@taskflow/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@taskflow/shared": "*",
+    "bullmq": "^5.63.0",
+    "ioredis": "^5.8.2",
+    "mongoose": "^8.20.1",
+    "nanoid": "^5.1.6",
+    "pino": "^10.1.0"
+  }
+}
