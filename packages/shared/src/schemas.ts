@@ -107,6 +107,11 @@ export const createApiKeySchema = z.object({
   scopes: z.array(z.enum(API_SCOPES)).min(1).default([...API_SCOPES]),
 });
 
+export const retryFailedJobsSchema = z.object({
+  queue: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const listJobsQuerySchema = z.object({
   status: z.enum(["waiting", "delayed", "active", "completed", "failed", "cancelled"]).optional(),
   queue: z.string().trim().max(80).optional(),

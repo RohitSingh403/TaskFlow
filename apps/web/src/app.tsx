@@ -12,6 +12,7 @@ import { ActivityPage, AnalyticsPage, LogsPage } from "@/pages/observe";
 import { LoginPage, RegisterPage } from "@/pages/auth";
 import { DashboardPage } from "@/pages/dashboard";
 import { JobDetailPage, JobsPage } from "@/pages/jobs";
+import { DeadLetterPage } from "@/pages/dead-letter";
 import { SchedulesPage } from "@/pages/schedules";
 import { WorkflowDetailPage, WorkflowsPage } from "@/pages/workflows";
 import { AlertsPage } from "@/pages/alerts";
@@ -92,6 +93,7 @@ export function App() {
         <Route path="queues" element={<QueuesPage />} />
         <Route path="queues/:queueId" element={<QueueDetailPage />} />
         <Route path="jobs" element={<JobsPage />} />
+        <Route path="dead-letter" element={<DeadLetterPage />} />
         <Route path="schedules" element={<SchedulesPage />} />
         <Route path="workflows" element={<WorkflowsPage />} />
         <Route path="workflows/:workflowId" element={<WorkflowDetailPage />} />
