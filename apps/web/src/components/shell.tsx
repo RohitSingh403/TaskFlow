@@ -5,6 +5,7 @@ import {
   Bell,
   CalendarClock,
   GitBranch,
+  Inbox,
   BookOpen,
   Boxes,
   ChevronDown,
@@ -41,6 +42,7 @@ const groups = [
     items: [
       { to: "/queues", label: "Queues", icon: Boxes },
       { to: "/jobs", label: "Jobs", icon: Workflow },
+      { to: "/dead-letter", label: "Dead letter", icon: Inbox },
       { to: "/schedules", label: "Schedules", icon: CalendarClock },
       { to: "/workflows", label: "Workflows", icon: GitBranch },
       { to: "/workers", label: "Workers", icon: Server },

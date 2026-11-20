@@ -47,6 +47,8 @@ API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `worke
 
 `Idempotency-Key` header overrides the body field. Lists accept `status`, `queue`, `priority`, `name`, `jobId`, `q`, `from`, `to`, `page`, and `limit` (max 100).
 
+A job that has used its attempts stays `failed` on the same queue. `POST /projects/:projectId/jobs/retry-failed` with `{ "queue": "emails", "limit": 20 }` retries the oldest failed jobs, up to 50. The same job id is queued again. A repeated call does not insert another job record.
+
 `_simulate` is allowed only when the project environment is `development`:
 
 ```json
