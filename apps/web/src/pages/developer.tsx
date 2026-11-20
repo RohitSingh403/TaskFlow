@@ -118,6 +118,8 @@ export function DocsPage() {
     ["POST", "/projects/:id/jobs", "Submit a job. Returns before execution."],
     ["GET", "/projects/:id/jobs/:jobId", "Read status, result, and error"],
     ["POST", "/projects/:id/jobs/:jobId/retry", "Retry a failed job"],
+    ["POST", "/projects/:id/schedules", "Create a recurring schedule"],
+    ["POST", "/projects/:id/schedules/:scheduleId/pause", "Stop future occurrences"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
   ];
   return (

@@ -10,6 +10,7 @@ import { ActivityPage, AnalyticsPage, LogsPage } from "@/pages/observe";
 import { LoginPage, RegisterPage } from "@/pages/auth";
 import { DashboardPage } from "@/pages/dashboard";
 import { JobDetailPage, JobsPage } from "@/pages/jobs";
+import { SchedulesPage } from "@/pages/schedules";
 import { QueueDetailPage, QueuesPage } from "@/pages/queues";
 import { WorkerDetailPage, WorkersPage } from "@/pages/workers";
 import { useSession } from "@/stores/session";
@@ -44,6 +45,7 @@ export function App() {
     const socket = io({ path: "/socket.io", auth: { token }, transports: ["websocket"] });
     const refresh = () => {
       void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+      void client.invalidateQueries({ queryKey: ["schedules", projectId] });
       void client.invalidateQueries({ queryKey: ["job", projectId] });
       void client.invalidateQueries({ queryKey: ["overview", projectId] });
       void client.invalidateQueries({ queryKey: ["throughput", projectId] });
@@ -78,6 +80,7 @@ export function App() {
         <Route path="queues" element={<QueuesPage />} />
         <Route path="queues/:queueId" element={<QueueDetailPage />} />
         <Route path="jobs" element={<JobsPage />} />
+        <Route path="schedules" element={<SchedulesPage />} />
         <Route path="jobs/:jobId" element={<JobDetailPage />} />
         <Route path="workers" element={<WorkersPage />} />
         <Route path="workers/:workerId" element={<WorkerDetailPage />} />

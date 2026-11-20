@@ -1,12 +1,13 @@
 # Architecture
 
-TaskFlow runs three processes:
+TaskFlow runs four processes:
 
 | Process | Responsibility |
 | --- | --- |
 | `apps/web` | Dashboard. Talks only to the API. |
 | `apps/api` | Authentication, validation, job submission, queue controls, queries. |
 | `apps/worker` | BullMQ consumers, handler registry, heartbeats, enqueue repair. |
+| `apps/scheduler` | Turns due cron schedules into ordinary jobs. One process holds the Redis leader lock. |
 
 Redis holds BullMQ queues, the API rate-limit counters, and the `taskflow:events` pub/sub channel. MongoDB holds users, projects, queue configuration, job records, attempts, workers, API keys, logs, side-effect receipts, and audit entries.
 

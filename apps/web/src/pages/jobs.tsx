@@ -16,10 +16,12 @@ export function JobsPage() {
   const status = params.get("status") ?? "";
   const queue = params.get("queue") ?? "";
   const q = params.get("q") ?? "";
+  const schedule = params.get("schedule") ?? "";
   const query = new URLSearchParams({ page: String(page), limit: "20" });
   if (status) query.set("status", status);
   if (queue) query.set("queue", queue);
   if (q) query.set("q", q);
+  if (schedule) query.set("schedule", schedule);
   const jobs = useQuery({
     queryKey: ["jobs", projectId, query.toString()],
     enabled: Boolean(projectId),
