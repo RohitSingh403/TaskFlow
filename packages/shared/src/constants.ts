@@ -33,6 +33,10 @@ export const WEBHOOK_TIMEOUT_MS = 5_000;
 export const WEBHOOK_QUEUE = "webhooks";
 export const SCHEDULE_MISSED_GRACE_MS = 60_000;
 export const LOG_RETENTION_SECONDS = 14 * 24 * 60 * 60;
+export const DEFAULT_JOB_RETENTION_DAYS = 30;
+export const MIN_JOB_RETENTION_DAYS = 1;
+export const MAX_JOB_RETENTION_DAYS = 365;
+export const JOB_PURGE_BATCH = 200;
 export const PERCENTILE_SAMPLE_LIMIT = 5_000;
 
 export const JOB_STATUSES = [

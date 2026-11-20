@@ -15,6 +15,7 @@ export function toProject(project: {
   name: string;
   description?: string;
   environment: string;
+  jobRetentionDays?: number;
   defaultJobSettings?: {
     maxAttempts: number;
     backoffType: string;
@@ -30,6 +31,7 @@ export function toProject(project: {
     name: project.name,
     description: project.description ?? "",
     environment: project.environment,
+    jobRetentionDays: project.jobRetentionDays ?? 30,
     defaultJobSettings: project.defaultJobSettings,
     createdAt: project.createdAt?.toISOString(),
     updatedAt: project.updatedAt?.toISOString(),

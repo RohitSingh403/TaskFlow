@@ -6,7 +6,7 @@ import {
   PRIORITY_LABELS,
   QUEUE_NAME_PATTERN,
 } from "./constants.js";
-import { ALERT_STATUSES, BILLING_PLANS, DEFAULT_ALERT_COOLDOWN_MS, WEBHOOK_EVENTS } from "./constants.js";
+import { ALERT_STATUSES, BILLING_PLANS, DEFAULT_ALERT_COOLDOWN_MS, MAX_JOB_RETENTION_DAYS, MIN_JOB_RETENTION_DAYS, WEBHOOK_EVENTS } from "./constants.js";
 import { isHandlerName } from "./handlers.js";
 import { validateWorkflowGraph } from "./workflow.js";
 
@@ -46,6 +46,7 @@ export const updateProjectSchema = z
     name: z.string().trim().min(2).max(60).optional(),
     description: z.string().trim().max(280).optional(),
     environment: z.enum(ENVIRONMENTS).optional(),
+    jobRetentionDays: z.number().int().min(MIN_JOB_RETENTION_DAYS).max(MAX_JOB_RETENTION_DAYS).optional(),
     defaultJobSettings: z
       .object({
         maxAttempts: z.number().int().min(1).max(10),

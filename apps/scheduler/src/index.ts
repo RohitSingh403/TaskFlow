@@ -7,6 +7,7 @@ import {
   logger,
   evaluateAlerts,
   produceDueSchedules,
+  purgeExpiredJobs,
   randomToken,
   redisOptionsFromUrl,
 } from "@taskflow/server";
@@ -54,6 +55,8 @@ async function tick() {
     }));
     }
     if (alerts.length > 0) logger.info({ alerts: alerts.length }, "Scheduler opened alerts");
+    const purged = await purgeExpiredJobs(new Date());
+    if (purged.jobs > 0) logger.info(purged, "Scheduler deleted expired jobs");
   } catch (error) {
     logger.error({ err: error }, "Scheduler tick failed");
   } finally {

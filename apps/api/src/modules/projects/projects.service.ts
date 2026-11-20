@@ -77,6 +77,7 @@ export async function updateProject(project: ProjectDoc, input: Record<string, u
   if (input.environment === "development" || input.environment === "production") {
     project.environment = input.environment;
   }
+  if (typeof input.jobRetentionDays === "number") project.jobRetentionDays = input.jobRetentionDays;
   if (input.defaultJobSettings && typeof input.defaultJobSettings === "object") {
     project.defaultJobSettings = input.defaultJobSettings as ProjectDoc["defaultJobSettings"];
   }

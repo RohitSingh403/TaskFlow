@@ -61,6 +61,7 @@ const projectSchema = new Schema(
     description: { type: String, default: "" },
     environment: { type: String, enum: ENVIRONMENTS, required: true },
     plan: { type: String, enum: ["developer", "scale"], default: "developer" },
+    jobRetentionDays: { type: Number, default: 30, min: 1, max: 365 },
     defaultJobSettings: { type: defaultJobSettingsSchema, default: () => ({ ...DEFAULT_JOB_SETTINGS }) },
     deletedAt: { type: Date },
   },

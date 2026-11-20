@@ -24,6 +24,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - A TypeScript client, `@taskflow/sdk`. It submits work with an API key and returns when the API accepts the job.
 - Project members. The owner adds an existing account by email. Members can operate the project. The owner can transfer the project to a member and stays on as a member. API keys, settings, and deletion stay with the current owner.
 - Monthly job allowances. A developer plan includes 2,000 created jobs per UTC month, and a scale plan includes 50,000. TaskFlow does not collect card payments.
+- Job retention. Finished, failed, and cancelled jobs are deleted after 30 days by default. The owner can choose 1 to 365 days. Waiting and active jobs stay.
 
 ## Stack
 
@@ -187,7 +188,7 @@ packages/sdk    TypeScript client for the HTTP API
 
 - A project has one owner at a time. Members can operate it, and they cannot change settings, the plan, API keys, or delete it. The owner can transfer that role to a member. TaskFlow does not collect a card payment.
 - One API process fans Socket.IO out from its own subscription. Several API processes can each subscribe to Redis, but there is no cross-node Socket.IO adapter beyond that.
-- Completed BullMQ entries are trimmed. MongoDB is the durable history, and it has no archive job yet. Logs expire after 14 days.
+- Completed BullMQ entries are trimmed. MongoDB job records are deleted after the project's retention window. Logs expire after 14 days. TaskFlow does not copy either store to an archive.
 - Rate limits on the BullMQ worker are per queue and shared through Redis. API rate limits also use Redis.
 - The built-in handlers simulate work. They are the trusted registry a real deployment would replace with its own functions, still without accepting arbitrary code from API callers.
 - A scheduler that is down for more than a minute skips the ticks it missed. It does not replay a backlog when it returns.

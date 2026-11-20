@@ -26,6 +26,10 @@ Refresh tokens are `HttpOnly` cookies on `/api/v1/auth`, `SameSite=Lax`. The raw
 
 API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `workers:read`, `logs:read`, `analytics:read`. Creating keys, projects, and profile changes requires a user session.
 
+## Projects
+
+`PATCH /projects/:projectId` accepts `jobRetentionDays`, from 1 to 365. The default is 30. The scheduler deletes finished, failed, and cancelled jobs, and a finished workflow run, once every record in that set is older than the window. Waiting and active jobs stay. A repeated idempotency key can create a new job after the original record is gone. Only the owner can change the setting.
+
 ## Jobs
 
 `POST /projects/:projectId/jobs`
