@@ -6,7 +6,7 @@ import {
   PRIORITY_LABELS,
   QUEUE_NAME_PATTERN,
 } from "./constants.js";
-import { ALERT_STATUSES, DEFAULT_ALERT_COOLDOWN_MS } from "./constants.js";
+import { ALERT_STATUSES, DEFAULT_ALERT_COOLDOWN_MS, WEBHOOK_EVENTS } from "./constants.js";
 import { isHandlerName } from "./handlers.js";
 import { validateWorkflowGraph } from "./workflow.js";
 
@@ -238,6 +238,21 @@ export const listAlertsQuerySchema = z.object({
   status: z.enum(ALERT_STATUSES).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
+
+export const webhookSchema = z.object({
+  url: z.string().trim().url().max(500),
+  description: z.string().trim().max(280).optional(),
+  events: z.array(z.enum(WEBHOOK_EVENTS)).min(1).max(WEBHOOK_EVENTS.length),
+});
+
+export const updateWebhookSchema = z
+  .object({
+    url: z.string().trim().url().max(500).optional(),
+    description: z.string().trim().max(280).optional(),
+    events: z.array(z.enum(WEBHOOK_EVENTS)).min(1).max(WEBHOOK_EVENTS.length).optional(),
+    enabled: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
 
 export const listLogsQuerySchema = z.object({
   level: z.enum(["debug", "info", "warn", "error"]).optional(),

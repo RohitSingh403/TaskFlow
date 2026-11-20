@@ -9,6 +9,7 @@ import {
   Boxes,
   ChevronDown,
   KeyRound,
+  Webhook,
   LayoutDashboard,
   Menu,
   ScrollText,
@@ -55,6 +56,7 @@ const groups = [
     label: "Developer",
     items: [
       { to: "/keys", label: "API keys", icon: KeyRound },
+      { to: "/webhooks", label: "Webhooks", icon: Webhook },
       { to: "/docs", label: "API documentation", icon: BookOpen },
     ],
   },

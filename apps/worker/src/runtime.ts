@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import os from "node:os";
-import { EVENTS_CHANNEL, mapBullState, shouldApplyJobStatus, type JobStatus, type RealtimeEvent } from "@taskflow/shared";
+import { EVENTS_CHANNEL, WEBHOOK_QUEUE, mapBullState, shouldApplyJobStatus, type JobStatus, type RealtimeEvent } from "@taskflow/shared";
 import {
   closeBullQueues,
   configureBull,
@@ -19,6 +19,8 @@ import {
   QueueConfig,
   redisOptionsFromUrl,
   WorkerRecord,
+  deliverWebhook,
+  repairWebhookDeliveries,
 } from "@taskflow/server";
 import { Worker, type Job } from "bullmq";
 import mongoose from "mongoose";
@@ -56,6 +58,17 @@ export async function startWorkerRuntime(options: RuntimeOptions) {
   let jobsFailed = 0;
   let stopped = false;
   const managed = new Map<string, ManagedWorker>();
+  const webhookWorker = new Worker(
+    WEBHOOK_QUEUE,
+    async (job) => {
+      const deliveryId = String((job.data as { deliveryId?: string }).deliveryId ?? "");
+      await deliverWebhook(deliveryId, job.attemptsMade + 1);
+    },
+    { connection: getBullConnection(), prefix: getBullPrefix(), concurrency: 5 },
+  );
+  webhookWorker.on("failed", (job, error) => {
+    logger.error({ err: error, deliveryId: job?.id }, "Webhook delivery attempt failed");
+  });
 
   async function publish(event: RealtimeEvent) {
     await publisher.publish(EVENTS_CHANNEL, JSON.stringify(event));
@@ -307,7 +320,9 @@ export async function startWorkerRuntime(options: RuntimeOptions) {
     })();
   }, options.pollMs ?? 5_000);
   const sweeper = setInterval(() => {
-    void sweep().catch((error) => logger.error({ err: error }, "Recovery sweep failed"));
+    void sweep()
+      .then(() => repairWebhookDeliveries())
+      .catch((error) => logger.error({ err: error }, "Recovery sweep failed"));
   }, 15_000);
 
   logger.info({ workerId, hostname, pid }, "TaskFlow worker running");
@@ -322,6 +337,7 @@ export async function startWorkerRuntime(options: RuntimeOptions) {
         { workerId },
         { $set: { stoppedAt: new Date(), activeJobs: 0, activeJobIds: [], lastHeartbeatAt: new Date() } },
       );
+      await webhookWorker.close();
       await Promise.all([...managed.values()].map((entry) => entry.worker.close()));
       managed.clear();
       await closeBullQueues();

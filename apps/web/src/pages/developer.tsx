@@ -124,6 +124,8 @@ export function DocsPage() {
     ["POST", "/projects/:id/workflows/:workflowId/runs", "Start one run of that workflow"],
     ["POST", "/projects/:id/alerts/rules", "Create a backlog, failure, offline, or long-running alert"],
     ["POST", "/projects/:id/alerts/:alertId/resolve", "Mark an alert resolved"],
+    ["POST", "/projects/:id/webhooks", "Register a signed outbound endpoint"],
+    ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
   ];
   return (

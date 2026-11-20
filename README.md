@@ -15,12 +15,13 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Recurring schedules. A separate scheduler process creates one normal job per cron tick.
 - Workflows. A run is a tree of normal jobs. Children finish before the parent that waits on them.
 - Alert rules for queue backlog, failure rate, offline workers, and long-running jobs. The scheduler opens an in-app alert and then waits out a cooldown.
+- Signed outbound webhooks for job completion, failure, cancellation, and fired alerts. Delivery is at least once from the worker.
 - A separate worker process, heartbeats, and health derived from those heartbeats.
 - Attempt history, structured logs, and dashboard metrics.
 - Socket.IO updates scoped to a project room. The client refetches after reconnect.
 - A fixed handler registry. Callers name a handler. They cannot submit code.
 
-Not in this version: webhooks, team membership, billing, and a client SDK. Those are real follow-on projects, not hidden pages.
+Not in this version: team membership, billing, and a client SDK. Those are real follow-on projects, not hidden pages.
 
 ## Stack
 
@@ -151,6 +152,8 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | POST | `/projects/:id/workflows/:workflowId/runs` | Start a workflow run |
 | POST | `/projects/:id/alerts/rules` | Create an alert rule |
 | GET | `/projects/:id/alerts` | Alert history |
+| POST | `/projects/:id/webhooks` | Register a signed webhook |
+| POST | `/projects/:id/webhooks/:webhookId/rotate` | Replace the signing secret |
 | GET | `/projects/:id/jobs/:jobId` | Job detail |
 | POST | `/projects/:id/jobs/:jobId/retry` | Retry a failed job |
 | GET | `/projects/:id/analytics/overview` | Operational summary |

@@ -2,6 +2,7 @@ import { redact, shouldApplyJobStatus, type JobStatus, type RealtimeEvent } from
 import { JobAttempt, JobRecord, LogEntry } from "./models.js";
 import { logger } from "./logger.js";
 import { syncWorkflowRun } from "./workflow-runs.js";
+import { dispatchWebhooks } from "./webhooks.js";
 
 function truncate(value: string | undefined, max = 8_000) {
   if (!value) return undefined;
@@ -92,6 +93,7 @@ export async function onJobCompleted(input: {
     await job.save();
   }
   await syncWorkflowRun(job.workflowRunId);
+  if (job.status === "completed") await notifyWebhook(job, "job.completed");
   await JobAttempt.updateOne(
     { jobId: job._id, attemptNumber: input.attempt },
     {
@@ -158,6 +160,7 @@ export async function onJobFailed(input: {
     await job.save();
   }
   await syncWorkflowRun(job.workflowRunId);
+  if (terminal && job.status === "failed") await notifyWebhook(job, "job.failed");
   await JobAttempt.updateOne(
     { jobId: job._id, attemptNumber: input.attempt },
     {
@@ -201,4 +204,21 @@ export async function onJobFailed(input: {
       durationMs: input.durationMs,
     },
   };
+}
+
+async function notifyWebhook(job: { projectId: unknown; publicId: string; queueName: string; name: string; status: string; durationMs?: number; error?: { message?: string }; result?: unknown }, event: "job.completed" | "job.failed") {
+  await dispatchWebhooks({
+    projectId: job.projectId,
+    event,
+    resourceId: job.publicId,
+    data: {
+      jobId: job.publicId,
+      queue: job.queueName,
+      name: job.name,
+      status: job.status,
+      durationMs: job.durationMs ?? null,
+      error: job.error?.message ?? null,
+      result: job.result ?? null,
+    },
+  }).catch((error) => logger.error({ err: error, jobId: job.publicId }, "Webhook dispatch failed"));
 }

@@ -9,6 +9,7 @@ import {
   JOB_STATUSES,
   LOG_RETENTION_SECONDS,
   PRIORITY_LABELS,
+  WEBHOOK_EVENTS,
   type ApiScope,
   type BackoffType,
   type JobStatus,
@@ -441,6 +442,65 @@ const alertEventSchema = new Schema(
 alertEventSchema.index({ projectId: 1, createdAt: -1 });
 alertEventSchema.index({ projectId: 1, status: 1, createdAt: -1 });
 
+const webhookSchema = new Schema(
+  {
+    publicId: { type: String, required: true, unique: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    projectPublicId: { type: String, required: true },
+    url: { type: String, required: true },
+    description: { type: String, default: "" },
+    events: { type: [{ type: String, enum: WEBHOOK_EVENTS }], required: true },
+    secret: { type: String, required: true },
+    secretPrefix: { type: String, required: true },
+    enabled: { type: Boolean, default: true },
+    deletedAt: { type: Date },
+    createdBy: {
+      type: new Schema(
+        {
+          type: { type: String, enum: ["user", "api_key"], required: true },
+          id: { type: String, required: true },
+          label: { type: String, required: true },
+        },
+        { _id: false },
+      ),
+      required: true,
+    },
+  },
+  { timestamps: true, versionKey: false },
+);
+webhookSchema.index({ projectId: 1, enabled: 1, deletedAt: 1 });
+
+const webhookAttemptSchema = new Schema(
+  {
+    at: { type: Date, required: true },
+    statusCode: { type: Number },
+    error: { type: String, default: "" },
+    durationMs: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
+const webhookDeliverySchema = new Schema(
+  {
+    publicId: { type: String, required: true, unique: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    projectPublicId: { type: String, required: true },
+    webhookId: { type: Schema.Types.ObjectId, ref: "Webhook", required: true },
+    webhookPublicId: { type: String, required: true },
+    event: { type: String, enum: WEBHOOK_EVENTS, required: true },
+    resourceId: { type: String, required: true },
+    body: { type: Schema.Types.Mixed, required: true },
+    status: { type: String, enum: ["pending", "succeeded", "failed"], required: true },
+    attempts: { type: [webhookAttemptSchema], default: [] },
+    enqueued: { type: Boolean, default: false },
+    completedAt: { type: Date },
+  },
+  { timestamps: true, versionKey: false },
+);
+webhookDeliverySchema.index({ webhookId: 1, event: 1, resourceId: 1 }, { unique: true });
+webhookDeliverySchema.index({ projectId: 1, createdAt: -1 });
+webhookDeliverySchema.index({ status: 1, enqueued: 1, createdAt: 1 });
+
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const RefreshToken = mongoose.models.RefreshToken || mongoose.model("RefreshToken", refreshTokenSchema);
 export const Project = mongoose.models.Project || mongoose.model("Project", projectSchema);
@@ -457,10 +517,12 @@ export const Workflow = mongoose.models.Workflow || mongoose.model("Workflow", w
 export const WorkflowRun = mongoose.models.WorkflowRun || mongoose.model("WorkflowRun", workflowRunSchema);
 export const AlertRule = mongoose.models.AlertRule || mongoose.model("AlertRule", alertRuleSchema);
 export const AlertEvent = mongoose.models.AlertEvent || mongoose.model("AlertEvent", alertEventSchema);
+export const Webhook = mongoose.models.Webhook || mongoose.model("Webhook", webhookSchema);
+export const WebhookDelivery = mongoose.models.WebhookDelivery || mongoose.model("WebhookDelivery", webhookDeliverySchema);
 
 export async function ensureIndexes() {
   await Promise.all(
-    [User, RefreshToken, Project, QueueConfig, JobRecord, JobAttempt, WorkerRecord, ApiKey, LogEntry, SideEffect, Schedule, Workflow, WorkflowRun, AlertRule, AlertEvent, AuditLog].map((model) =>
+    [User, RefreshToken, Project, QueueConfig, JobRecord, JobAttempt, WorkerRecord, ApiKey, LogEntry, SideEffect, Schedule, Workflow, WorkflowRun, AlertRule, AlertEvent, Webhook, WebhookDelivery, AuditLog].map((model) =>
       model.syncIndexes(),
     ),
   );
@@ -475,6 +537,8 @@ export type WorkflowDoc = HydratedDocument<InferSchemaType<typeof workflowSchema
 export type WorkflowRunDoc = HydratedDocument<InferSchemaType<typeof workflowRunSchema>>;
 export type AlertRuleDoc = HydratedDocument<InferSchemaType<typeof alertRuleSchema>>;
 export type AlertEventDoc = HydratedDocument<InferSchemaType<typeof alertEventSchema>>;
+export type WebhookDoc = HydratedDocument<InferSchemaType<typeof webhookSchema>>;
+export type WebhookDeliveryDoc = HydratedDocument<InferSchemaType<typeof webhookDeliverySchema>>;
 export type ApiKeyDoc = HydratedDocument<InferSchemaType<typeof apiKeySchema>>;
 export type WorkerDoc = HydratedDocument<InferSchemaType<typeof workerSchema>>;
 

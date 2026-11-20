@@ -13,7 +13,7 @@ Redis holds BullMQ queues, the API rate-limit counters, and the `taskflow:events
 
 A workflow run is one BullMQ flow. The parent job stays in `waiting-children` until every child completes. TaskFlow stores that parent as `waiting` until a worker starts it. The run status is derived from the step records: any failed step fails the run, every step completed completes the run, and an active step makes the run active.
 
-The same scheduler leader evaluates alert rules after it produces due schedules. An alert is a MongoDB record. It is not an outbound webhook.
+The same scheduler leader evaluates alert rules after it produces due schedules. An alert is a MongoDB record. The worker process delivers outbound webhooks from a separate BullMQ queue named `webhooks`. That delivery is at least once, signed, and independent of the request that caused the event.
 
 A queue configuration document is not the queue. The queue is the BullMQ key derived as `tf_<projectPublicId>_<queueName>`.
 

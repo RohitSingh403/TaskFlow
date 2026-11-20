@@ -23,6 +23,10 @@ MongoDB collections and the indexes that back the access patterns:
 | jobrecords | `workflowRunId` | Steps that belong to one run |
 | alertrules | unique `projectId + name` where `deletedAt` is null | One live name per project |
 | alertevents | `projectId + status + createdAt` | Open and recent alerts |
+| webhooks | `projectId + enabled + deletedAt` | Endpoints that should receive an event |
+| webhookdeliveries | unique `webhookId + event + resourceId` | One delivery record per event |
+| webhookdeliveries | `projectId + createdAt` | Recent deliveries |
+| webhookdeliveries | `status + enqueued + createdAt` | Repair a delivery that was saved and not queued |
 | refreshtokens | `expiresAt` TTL | Drop expired sessions |
 
 `passwordHash` and `keyHash` are excluded from normal queries. API responses return a key prefix, never the hash or the secret.
