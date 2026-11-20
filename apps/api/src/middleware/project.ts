@@ -1,6 +1,14 @@
-import { Project, User } from "@taskflow/server";
+import { Project, projectRole, User } from "@taskflow/server";
 import type { NextFunction, Request, Response } from "express";
 import { AppError } from "../errors.js";
+
+export function requireOwner(req: Request, _res: Response, next: NextFunction) {
+  if (req.auth?.type !== "user" || req.projectRole !== "owner") {
+    next(new AppError(403, "OWNER_REQUIRED", "Only the project owner can do that"));
+    return;
+  }
+  next();
+}
 
 export async function loadProject(req: Request, _res: Response, next: NextFunction) {
   try {
@@ -15,11 +23,12 @@ export async function loadProject(req: Request, _res: Response, next: NextFuncti
       if (req.auth.projectPublicId !== project.publicId) {
         throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
       }
+      req.projectRole = "owner";
     } else {
       const user = await User.findOne({ publicId: req.auth.userPublicId });
-      if (!user || String(project.ownerId) !== String(user._id)) {
-        throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
-      }
+      const role = user ? await projectRole(String(user._id), project) : null;
+      if (!role) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+      req.projectRole = role;
     }
     req.project = project;
     next();

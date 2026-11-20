@@ -24,6 +24,8 @@ MongoDB collections and the indexes that back the access patterns:
 | alertrules | unique `projectId + name` where `deletedAt` is null | One live name per project |
 | alertevents | `projectId + status + createdAt` | Open and recent alerts |
 | webhooks | `projectId + enabled + deletedAt` | Endpoints that should receive an event |
+| projectmembers | unique `projectId + userId` where `deletedAt` is null | One live membership per account |
+| projectmembers | `userId + deletedAt` | Projects a person can open |
 | webhookdeliveries | unique `webhookId + event + resourceId` | One delivery record per event |
 | webhookdeliveries | `projectId + createdAt` | Recent deliveries |
 | webhookdeliveries | `status + enqueued + createdAt` | Repair a delivery that was saved and not queued |

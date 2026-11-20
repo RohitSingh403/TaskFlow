@@ -501,6 +501,25 @@ webhookDeliverySchema.index({ webhookId: 1, event: 1, resourceId: 1 }, { unique:
 webhookDeliverySchema.index({ projectId: 1, createdAt: -1 });
 webhookDeliverySchema.index({ status: 1, enqueued: 1, createdAt: 1 });
 
+const projectMemberSchema = new Schema(
+  {
+    publicId: { type: String, required: true, unique: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    projectPublicId: { type: String, required: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+    userPublicId: { type: String, required: true },
+    email: { type: String, required: true },
+    name: { type: String, required: true },
+    deletedAt: { type: Date },
+  },
+  { timestamps: true, versionKey: false },
+);
+projectMemberSchema.index(
+  { projectId: 1, userId: 1 },
+  { unique: true, partialFilterExpression: { deletedAt: null } },
+);
+projectMemberSchema.index({ userId: 1, deletedAt: 1 });
+
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const RefreshToken = mongoose.models.RefreshToken || mongoose.model("RefreshToken", refreshTokenSchema);
 export const Project = mongoose.models.Project || mongoose.model("Project", projectSchema);
@@ -519,10 +538,11 @@ export const AlertRule = mongoose.models.AlertRule || mongoose.model("AlertRule"
 export const AlertEvent = mongoose.models.AlertEvent || mongoose.model("AlertEvent", alertEventSchema);
 export const Webhook = mongoose.models.Webhook || mongoose.model("Webhook", webhookSchema);
 export const WebhookDelivery = mongoose.models.WebhookDelivery || mongoose.model("WebhookDelivery", webhookDeliverySchema);
+export const ProjectMember = mongoose.models.ProjectMember || mongoose.model("ProjectMember", projectMemberSchema);
 
 export async function ensureIndexes() {
   await Promise.all(
-    [User, RefreshToken, Project, QueueConfig, JobRecord, JobAttempt, WorkerRecord, ApiKey, LogEntry, SideEffect, Schedule, Workflow, WorkflowRun, AlertRule, AlertEvent, Webhook, WebhookDelivery, AuditLog].map((model) =>
+    [User, RefreshToken, Project, QueueConfig, JobRecord, JobAttempt, WorkerRecord, ApiKey, LogEntry, SideEffect, Schedule, Workflow, WorkflowRun, AlertRule, AlertEvent, Webhook, WebhookDelivery, ProjectMember, AuditLog].map((model) =>
       model.syncIndexes(),
     ),
   );
@@ -539,6 +559,7 @@ export type AlertRuleDoc = HydratedDocument<InferSchemaType<typeof alertRuleSche
 export type AlertEventDoc = HydratedDocument<InferSchemaType<typeof alertEventSchema>>;
 export type WebhookDoc = HydratedDocument<InferSchemaType<typeof webhookSchema>>;
 export type WebhookDeliveryDoc = HydratedDocument<InferSchemaType<typeof webhookDeliverySchema>>;
+export type ProjectMemberDoc = HydratedDocument<InferSchemaType<typeof projectMemberSchema>>;
 export type ApiKeyDoc = HydratedDocument<InferSchemaType<typeof apiKeySchema>>;
 export type WorkerDoc = HydratedDocument<InferSchemaType<typeof workerSchema>>;
 

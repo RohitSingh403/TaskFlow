@@ -10,6 +10,7 @@ export interface Project {
   name: string;
   description: string;
   environment: "development" | "production";
+  role?: "owner" | "member";
   defaultJobSettings: {
     maxAttempts: number;
     backoffType: "exponential" | "fixed";

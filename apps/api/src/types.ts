@@ -15,6 +15,7 @@ declare global {
     interface Request {
       auth?: AuthContext;
       project?: ProjectDoc;
+      projectRole?: "owner" | "member";
     }
     interface Locals {
       requestId?: string;

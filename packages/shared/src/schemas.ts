@@ -239,6 +239,10 @@ export const listAlertsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
 
+export const inviteMemberSchema = z.object({
+  email: z.string().trim().email().max(200),
+});
+
 export const webhookSchema = z.object({
   url: z.string().trim().url().max(500),
   description: z.string().trim().max(280).optional(),

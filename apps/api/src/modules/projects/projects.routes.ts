@@ -1,4 +1,4 @@
-import { Project } from "@taskflow/server";
+import { Project, projectRole } from "@taskflow/server";
 import { projectSchema, updateProjectSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toProject } from "../../dto.js";
@@ -18,11 +18,11 @@ projectRouter.get(
   asyncHandler(async (req, res) => {
     if (req.auth?.type === "api_key") {
       const project = await Project.findOne({ publicId: req.auth.projectPublicId, deletedAt: null });
-      sendOk(res, project ? [toProject(project)] : []);
+      sendOk(res, project ? [{ ...toProject(project), role: "owner" }] : []);
       return;
     }
     const projects = await listProjects(req.auth!.userObjectId);
-    sendOk(res, projects.map((project) => toProject(project)));
+    sendOk(res, projects.map((row) => ({ ...toProject(row.project), role: row.role })));
   }),
 );
 
@@ -52,11 +52,10 @@ projectRouter.get(
     if (req.auth?.type === "api_key" && req.auth.projectPublicId !== project.publicId) {
       throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
     }
-    if (req.auth?.type === "user" && String(project.ownerId) !== req.auth.userObjectId) {
-      throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
-    }
+    const role = req.auth?.type === "api_key" ? "owner" : await projectRole(req.auth!.userObjectId, project);
+    if (!role) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
     const usage = await projectUsage(project);
-    sendOk(res, { ...toProject(project), usage });
+    sendOk(res, { ...toProject(project), usage, role });
   }),
 );
 
@@ -104,11 +103,13 @@ projectRouter.get(
   }),
 );
 
-async function ownedProject(ownerObjectId: string, projectId: string, authType?: string, apiProjectId?: string) {
+async function ownedProject(userObjectId: string, projectId: string, authType?: string, apiProjectId?: string) {
   const project = await Project.findOne({ publicId: projectId, deletedAt: null });
   if (!project) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
   if (authType === "api_key") throw new AppError(403, "FORBIDDEN", "This action requires a user session");
   if (apiProjectId && apiProjectId !== project.publicId) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
-  if (String(project.ownerId) !== ownerObjectId) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  const role = await projectRole(userObjectId, project);
+  if (!role) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  if (role !== "owner") throw new AppError(403, "OWNER_REQUIRED", "Only the project owner can do that");
   return project;
 }

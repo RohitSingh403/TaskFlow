@@ -138,6 +138,16 @@ TaskFlow POSTs the same JSON body on every attempt. Headers are `TaskFlow-Delive
 
 Live waiting and active counts come from BullMQ. Submitted, completed, and failed totals in the window come from MongoDB. Latency percentiles are computed in process from up to 5,000 completed durations.
 
+## Members
+
+`POST /projects/:projectId/members`
+
+```json
+{ "email": "grace@example.com" }
+```
+
+The email must already belong to an account. TaskFlow does not send an invitation message. The owner can add 20 members. A member can submit and inspect work. Changing settings, managing API keys, inviting people, and deleting the project stay with the owner. `POST /projects/:projectId/members/leave` removes the signed-in member. An account that cannot see the project still receives `404`.
+
 ## Client
 
 `@taskflow/sdk` is a thin TypeScript client. Pass an API key and, when the API is not on `http://127.0.0.1:4000`, a `baseUrl`. The key is bound to one project, so the client reads that project on the first call. `jobs.create` returns when the API accepts the job. It does not wait for a worker, and it does not retry. Pass `idempotencyKey` when a retry of that call must return the original job.

@@ -6,6 +6,7 @@ import {
   getBullQueue,
   JobRecord,
   Project,
+  ProjectMember,
   QueueConfig,
   type ProjectDoc,
 } from "@taskflow/server";
@@ -18,8 +19,16 @@ interface Actor {
   id: string;
 }
 
-export async function listProjects(ownerObjectId: string) {
-  return Project.find({ ownerId: ownerObjectId, deletedAt: null }).sort({ createdAt: -1 });
+export async function listProjects(userObjectId: string) {
+  const memberships = await ProjectMember.find({ userId: userObjectId, deletedAt: null }).select("projectId");
+  const projects = await Project.find({
+    deletedAt: null,
+    $or: [{ ownerId: userObjectId }, { _id: { $in: memberships.map((member) => member.projectId) } }],
+  }).sort({ createdAt: -1 });
+  return projects.map((project) => ({
+    project,
+    role: String(project.ownerId) === String(userObjectId) ? ("owner" as const) : ("member" as const),
+  }));
 }
 
 export async function createProject(

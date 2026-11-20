@@ -21,8 +21,9 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Socket.IO updates scoped to a project room. The client refetches after reconnect.
 - A fixed handler registry. Callers name a handler. They cannot submit code.
 - A TypeScript client, `@taskflow/sdk`. It submits work with an API key and returns when the API accepts the job.
+- Project members. The owner adds an existing account by email. Members can operate the project. API keys, settings, and deletion stay with the owner.
 
-Not in this version: team membership and billing. Those are real follow-on projects, not hidden pages.
+Not in this version: billing. That is a real follow-on project, not a hidden page.
 
 ## Stack
 
@@ -184,7 +185,7 @@ packages/sdk    TypeScript client for the HTTP API
 
 ## Known limits
 
-- One owner per project. There is no team role model yet.
+- A project has one owner. Members can operate it, and they cannot change settings, manage API keys, or delete it. There is no ownership transfer and no billing.
 - One API process fans Socket.IO out from its own subscription. Several API processes can each subscribe to Redis, but there is no cross-node Socket.IO adapter beyond that.
 - Completed BullMQ entries are trimmed. MongoDB is the durable history, and it has no archive job yet. Logs expire after 14 days.
 - Rate limits on the BullMQ worker are per queue and shared through Redis. API rate limits also use Redis.

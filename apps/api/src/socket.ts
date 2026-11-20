@@ -1,4 +1,4 @@
-import { Project } from "@taskflow/server";
+import { Project, projectRole } from "@taskflow/server";
 import type { Server as HttpServer } from "node:http";
 import { Server } from "socket.io";
 import { corsOrigins } from "./config.js";
@@ -29,7 +29,8 @@ export function attachSocket(server: HttpServer) {
       if (typeof projectId !== "string") return;
       const auth = socket.data.auth as { userObjectId?: string } | undefined;
       const project = await Project.findOne({ publicId: projectId, deletedAt: null });
-      if (!project || !auth?.userObjectId || String(project.ownerId) !== auth.userObjectId) {
+      const role = project && auth?.userObjectId ? await projectRole(auth.userObjectId, project) : null;
+      if (!project || !role) {
         socket.emit("project:error", { message: "Project not found" });
         return;
       }

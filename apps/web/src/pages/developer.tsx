@@ -125,6 +125,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/alerts/rules", "Create a backlog, failure, offline, or long-running alert"],
     ["POST", "/projects/:id/alerts/:alertId/resolve", "Mark an alert resolved"],
     ["POST", "/projects/:id/webhooks", "Register a signed outbound endpoint"],
+    ["POST", "/projects/:id/members", "Add an existing account to the project"],
     ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
   ];
@@ -221,6 +222,7 @@ export function ProjectSettingsPage() {
   return (
     <div className="max-w-2xl space-y-4">
       <h1 className="text-[28px] font-semibold tracking-tight">Project settings</h1>
+      {data.role === "member" ? <p className="text-[13px] text-muted">You are a member of this project. Only the owner can change these settings or delete it.</p> : null}
       <Card className="p-4">
         <form
           className="space-y-3"
@@ -268,14 +270,14 @@ export function ProjectSettingsPage() {
             <Field label="Timeout ms"><TextInput name="timeoutMs" defaultValue={String(data.defaultJobSettings.timeoutMs)} /></Field>
           </div>
           <p className="text-[12px] text-muted">Usage: {data.usage?.jobs ?? 0} jobs · {data.usage?.failedJobs ?? 0} failed · {data.usage?.activeKeys ?? 0} active keys</p>
-          <Button type="submit" loading={save.isPending}>Save</Button>
+          {data.role === "member" ? null : <Button type="submit" loading={save.isPending}>Save</Button>}
         </form>
       </Card>
-      <Card className="border-danger/40 p-4">
+      {data.role === "member" ? null : <Card className="border-danger/40 p-4">
         <h2 className="font-semibold">Delete project</h2>
         <p className="mt-1 text-[13px] text-muted">Queues are paused and hidden. Job history remains in MongoDB.</p>
         <Button className="mt-3" variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>Delete project</Button>
-      </Card>
+      </Card>}
     </div>
   );
 }
