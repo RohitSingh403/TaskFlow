@@ -162,4 +162,6 @@ A new job, workflow run, or scheduled tick that would pass the allowance is reje
 
 ## Client
 
-`@taskflow/sdk` is a thin TypeScript client. Pass an API key and, when the API is not on `http://127.0.0.1:4000`, a `baseUrl`. The key is bound to one project, so the client reads that project on the first call. `jobs.create` returns when the API accepts the job. It does not wait for a worker, and it does not retry. Pass `idempotencyKey` when a retry of that call must return the original job.
+`@taskflow/sdk` is a thin TypeScript client. Pass an API key and, when the API is not on `http://127.0.0.1:4000`, a `baseUrl`. The key is bound to one project, so the client reads that project on the first call. `jobs.create` returns when the API accepts the job. `jobs.wait` polls that job until it is completed, failed, or cancelled, then returns the same record, including the handler result or error. A wait that exceeds `timeoutMs` throws `JOB_WAIT_TIMEOUT`.
+
+Reads retry up to two times after a network error or a 408, 429, 500, 502, 503, or 504 response. `jobs.create` retries those same responses only when `idempotencyKey` is set, because that key makes the replay return the original job. A create without a key is not retried. Other writes are not retried. `retries` and `retryDelayMs` change the bound. A `Retry-After` header is honored up to two seconds.
