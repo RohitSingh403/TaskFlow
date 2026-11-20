@@ -172,7 +172,7 @@ export function DocsPage() {
       <Card className="p-4">
         <h2 className="font-semibold">TypeScript client</h2>
         <p className="mt-2 text-[13px] leading-5 text-muted">
-          <span className="mono text-ink">@taskflow/sdk</span> uses an API key. The call returns when the job is accepted. It does not wait for the worker.
+          <span className="mono text-ink">@taskflow/sdk</span> uses an API key. <span className="mono text-ink">jobs.create</span> returns when the job is accepted. <span className="mono text-ink">jobs.wait</span> polls until that job is completed, failed, or cancelled. A read is retried after a transient failure. A create is retried only when it has an idempotency key.
         </p>
         <pre className="mono mt-3 overflow-auto text-[12px] leading-5 text-ink/90">{`import { TaskFlow } from "@taskflow/sdk";
 
@@ -181,14 +181,15 @@ const taskflow = new TaskFlow({
   baseUrl: "http://127.0.0.1:4000/api/v1",
 });
 
-const job = await taskflow.jobs.create({
+const accepted = await taskflow.jobs.create({
   queue: "emails",
   name: "send-email",
   payload: { to: "user@example.com", subject: "Welcome", body: "Glad you are here." },
   idempotencyKey: "welcome-user-123",
 });
 
-console.log(job.data.id);`}</pre>
+const finished = await taskflow.jobs.wait(accepted.data.id);
+console.log(finished.data.status, finished.data.result);`}</pre>
       </Card>
     </div>
   );

@@ -23,12 +23,14 @@ const payload = {
 
 let server: Server;
 let baseUrl = "";
+let stopWorker: (() => Promise<void>) | undefined;
 let disconnect: (() => Promise<void>) | undefined;
 
 beforeAll(async () => {
   const { createApp } = await import("../apps/api/src/app.ts");
   const { connectInfrastructure, disconnectInfrastructure } = await import("../apps/api/src/infrastructure.ts");
   const { prepareAuth } = await import("../apps/api/src/modules/auth/auth.service.ts");
+  const { startWorkerRuntime } = await import("../apps/worker/src/runtime.ts");
 
   await mongoose.connect(process.env.MONGODB_URI!, { serverSelectionTimeoutMS: 5_000 });
   await mongoose.connection.dropDatabase();
@@ -40,6 +42,15 @@ beforeAll(async () => {
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("Test API did not bind a port");
   baseUrl = `http://127.0.0.1:${address.port}/api/v1`;
+  const runtime = await startWorkerRuntime({
+    mongoUri: process.env.MONGODB_URI!,
+    redisUrl: process.env.REDIS_URL!,
+    bullPrefix: process.env.BULL_PREFIX!,
+    pollMs: 400,
+    lockDurationMs: 5_000,
+    stalledIntervalMs: 2_000,
+  });
+  stopWorker = async () => runtime.stop();
   disconnect = async () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     await disconnectInfrastructure();
@@ -47,6 +58,7 @@ beforeAll(async () => {
 }, 40_000);
 
 afterAll(async () => {
+  await stopWorker?.();
   await disconnect?.();
 });
 
@@ -94,6 +106,10 @@ it("submits and reads a job with an API key, and replays the same idempotency ke
   const fetched = await client.jobs.get(created.data.id);
   expect(fetched.data.queue).toBe("emails");
   expect(fetched.data.name).toBe("send-email");
+
+  const finished = await client.jobs.wait(created.data.id, { timeoutMs: 15_000, intervalMs: 100 });
+  expect(finished.data.status).toBe("completed");
+  expect(finished.data.result).toMatchObject({ delivered: true, to: payload.to, idempotentReplay: false });
 
   const queues = await client.queues.list();
   expect(queues.data.map((queue) => queue.name)).toContain("emails");

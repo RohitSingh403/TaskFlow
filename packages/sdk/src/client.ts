@@ -6,6 +6,7 @@ export class TaskFlowError extends Error {
     public code: string,
     message: string,
     public details?: { path: string; message: string }[],
+    public retryAfterMs?: number,
   ) {
     super(message);
     this.name = "TaskFlowError";
@@ -17,6 +18,13 @@ export interface TaskFlowOptions {
   baseUrl?: string;
   projectId?: string;
   fetch?: typeof fetch;
+  retries?: number;
+  retryDelayMs?: number;
+}
+
+export interface WaitOptions {
+  timeoutMs?: number;
+  intervalMs?: number;
 }
 
 interface Envelope<T> {
@@ -33,6 +41,8 @@ export class TaskFlow {
   private readonly baseUrl: string;
   private readonly fetchImpl: typeof fetch;
   private readonly explicitProjectId?: string;
+  private readonly retries: number;
+  private readonly retryDelayMs: number;
   private resolvedProjectId: Promise<string> | null = null;
 
   constructor(options: TaskFlowOptions) {
@@ -41,9 +51,29 @@ export class TaskFlow {
     this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, "");
     this.fetchImpl = options.fetch ?? fetch;
     this.explicitProjectId = options.projectId;
+    this.retries = options.retries ?? 2;
+    this.retryDelayMs = options.retryDelayMs ?? 50;
   }
 
-  async request<T>(method: string, path: string, init: { body?: unknown; query?: object; headers?: Record<string, string> } = {}): Promise<{ data: T; meta: PageMeta }> {
+  async request<T>(method: string, path: string, init: { body?: unknown; query?: object; headers?: Record<string, string>; idempotent?: boolean } = {}): Promise<{ data: T; meta: PageMeta }> {
+    const retryable = method === "GET" || init.idempotent === true;
+    const attempts = retryable ? this.retries + 1 : 1;
+    let lastError: TaskFlowError | null = null;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await this.send<T>(method, path, init);
+      } catch (error) {
+        if (!(error instanceof TaskFlowError) || !isRetryable(error)) throw error;
+        lastError = error;
+        if (attempt === attempts) throw error;
+        const backoff = Math.min(this.retryDelayMs * attempt, 1_000);
+        await delay(Math.min(Math.max(backoff, error.retryAfterMs ?? 0), 2_000));
+      }
+    }
+    throw lastError ?? new TaskFlowError(0, "REQUEST_FAILED", "Request failed");
+  }
+
+  private async send<T>(method: string, path: string, init: { body?: unknown; query?: object; headers?: Record<string, string> }): Promise<{ data: T; meta: PageMeta }> {
     const url = `${this.baseUrl}${path}${queryString(init.query)}`;
     let response: Response;
     try {
@@ -70,11 +100,14 @@ export class TaskFlow {
       }
     }
     if (!response.ok || body?.success === false) {
+      const retryAfter = response.headers.get("retry-after");
+      const retryAfterMs = retryAfter && /^\d+$/.test(retryAfter) ? Number(retryAfter) * 1_000 : undefined;
       throw new TaskFlowError(
         response.status,
         body?.error?.code || "REQUEST_FAILED",
         body?.error?.message || response.statusText || "Request failed",
         body?.error?.details,
+        retryAfterMs,
       );
     }
     return { data: body?.data as T, meta: body?.meta ?? {} };
@@ -107,9 +140,21 @@ export class TaskFlow {
   readonly jobs = {
     create: async (input: SubmitJobInput) => {
       const headers = input.idempotencyKey ? { "idempotency-key": input.idempotencyKey } : undefined;
-      return this.request<Job>("POST", await this.projectPath("/jobs"), { body: input, headers });
+      return this.request<Job>("POST", await this.projectPath("/jobs"), { body: input, headers, idempotent: Boolean(input.idempotencyKey) });
     },
     get: async (jobId: string) => this.request<Job>("GET", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}`)),
+    wait: async (jobId: string, options: WaitOptions = {}) => {
+      const timeoutMs = options.timeoutMs ?? 30_000;
+      const intervalMs = Math.max(50, options.intervalMs ?? 250);
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        const job = await this.jobs.get(jobId);
+        if (job.data.status === "completed" || job.data.status === "failed" || job.data.status === "cancelled") return job;
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) throw new TaskFlowError(0, "JOB_WAIT_TIMEOUT", "The job did not finish before the wait timed out");
+        await delay(Math.min(intervalMs, remaining));
+      }
+    },
     list: async (query: ListJobsQuery = {}) => this.request<Job[]>("GET", await this.projectPath("/jobs"), { query }),
     attempts: async (jobId: string) => this.request<JobAttempt[]>("GET", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/attempts`)),
     retry: async (jobId: string) => this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/retry`)),
@@ -209,6 +254,16 @@ export class TaskFlow {
     latency: async (query: object = {}) => this.request<Record<string, unknown>>("GET", await this.projectPath("/analytics/latency"), { query }),
     failures: async (query: object = {}) => this.request<Record<string, unknown>>("GET", await this.projectPath("/analytics/failures"), { query }),
   };
+}
+
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
+
+function isRetryable(error: TaskFlowError) {
+  return error.code === "NETWORK_ERROR" || RETRYABLE_STATUS.has(error.status);
+}
+
+function delay(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
 function queryString(query?: object) {

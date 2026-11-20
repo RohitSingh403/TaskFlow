@@ -21,7 +21,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Attempt history, structured logs, and dashboard metrics.
 - Socket.IO updates scoped to a project room. The client refetches after reconnect.
 - A fixed handler registry. Callers name a handler. They cannot submit code.
-- A TypeScript client, `@taskflow/sdk`. It submits work with an API key and returns when the API accepts the job.
+- A TypeScript client, `@taskflow/sdk`. It submits work with an API key and returns when the API accepts the job. `jobs.wait` polls until the job finishes. Reads retry transient failures. A create retries only when it has an idempotency key.
 - Project members. The owner adds an existing account by email. Members can operate the project. The owner can transfer the project to a member and stays on as a member. API keys, settings, and deletion stay with the current owner.
 - Monthly job allowances. A developer plan includes 2,000 created jobs per UTC month, and a scale plan includes 50,000. TaskFlow does not collect card payments.
 - Job retention. Finished, failed, and cancelled jobs are deleted after 30 days by default. The owner can choose 1 to 365 days. Waiting and active jobs stay.
@@ -194,4 +194,4 @@ packages/sdk    TypeScript client for the HTTP API
 - A scheduler that is down for more than a minute skips the ticks it missed. It does not replay a backlog when it returns.
 - A workflow is a tree. A step can wait for several earlier steps, and each earlier step can feed only one later step. A failed step keeps every step that waits on it from running until that failed job is retried.
 - Alerts stay in the dashboard until a webhook is registered for `alert.fired`. A rule that remains true does not open another alert until its cooldown has passed.
-- `@taskflow/sdk` does not retry a request. Send an idempotency key when a client retry must not create a second job. The call returns the accepted job. It does not wait for the handler.
+- `@taskflow/sdk` retries a create only when that create has an idempotency key. Other writes are not retried. `jobs.wait` polls the accepted job. It does not open a socket.
