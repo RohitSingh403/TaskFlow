@@ -164,6 +164,27 @@ export function DocsPage() {
     }
   }'`}</pre>
       </Card>
+      <Card className="p-4">
+        <h2 className="font-semibold">TypeScript client</h2>
+        <p className="mt-2 text-[13px] leading-5 text-muted">
+          <span className="mono text-ink">@taskflow/sdk</span> uses an API key. The call returns when the job is accepted. It does not wait for the worker.
+        </p>
+        <pre className="mono mt-3 overflow-auto text-[12px] leading-5 text-ink/90">{`import { TaskFlow } from "@taskflow/sdk";
+
+const taskflow = new TaskFlow({
+  apiKey: process.env.TASKFLOW_API_KEY,
+  baseUrl: "http://127.0.0.1:4000/api/v1",
+});
+
+const job = await taskflow.jobs.create({
+  queue: "emails",
+  name: "send-email",
+  payload: { to: "user@example.com", subject: "Welcome", body: "Glad you are here." },
+  idempotencyKey: "welcome-user-123",
+});
+
+console.log(job.data.id);`}</pre>
+      </Card>
     </div>
   );
 }

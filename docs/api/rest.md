@@ -137,3 +137,7 @@ TaskFlow POSTs the same JSON body on every attempt. Headers are `TaskFlow-Delive
 `GET /projects/:projectId/analytics/overview?range=24h|7d|30d`
 
 Live waiting and active counts come from BullMQ. Submitted, completed, and failed totals in the window come from MongoDB. Latency percentiles are computed in process from up to 5,000 completed durations.
+
+## Client
+
+`@taskflow/sdk` is a thin TypeScript client. Pass an API key and, when the API is not on `http://127.0.0.1:4000`, a `baseUrl`. The key is bound to one project, so the client reads that project on the first call. `jobs.create` returns when the API accepts the job. It does not wait for a worker, and it does not retry. Pass `idempotencyKey` when a retry of that call must return the original job.

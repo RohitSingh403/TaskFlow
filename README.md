@@ -20,8 +20,9 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Attempt history, structured logs, and dashboard metrics.
 - Socket.IO updates scoped to a project room. The client refetches after reconnect.
 - A fixed handler registry. Callers name a handler. They cannot submit code.
+- A TypeScript client, `@taskflow/sdk`. It submits work with an API key and returns when the API accepts the job.
 
-Not in this version: team membership, billing, and a client SDK. Those are real follow-on projects, not hidden pages.
+Not in this version: team membership and billing. Those are real follow-on projects, not hidden pages.
 
 ## Stack
 
@@ -171,6 +172,7 @@ apps/scheduler  Cron schedules into normal jobs
 apps/web        Operations dashboard
 packages/shared Status mapping, schemas, backoff math
 packages/server MongoDB models and queue lifecycle
+packages/sdk    TypeScript client for the HTTP API
 ```
 
 ## Further reading
@@ -189,4 +191,5 @@ packages/server MongoDB models and queue lifecycle
 - The built-in handlers simulate work. They are the trusted registry a real deployment would replace with its own functions, still without accepting arbitrary code from API callers.
 - A scheduler that is down for more than a minute skips the ticks it missed. It does not replay a backlog when it returns.
 - A workflow is a tree. A step can wait for several earlier steps, and each earlier step can feed only one later step. A failed step keeps every step that waits on it from running until that failed job is retried.
-- Alerts stay in the dashboard. They do not call an outside URL. A rule that remains true does not open another alert until its cooldown has passed.
+- Alerts stay in the dashboard until a webhook is registered for `alert.fired`. A rule that remains true does not open another alert until its cooldown has passed.
+- `@taskflow/sdk` does not retry a request. Send an idempotency key when a client retry must not create a second job. The call returns the accepted job. It does not wait for the handler.
