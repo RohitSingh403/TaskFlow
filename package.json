@@ -13,7 +13,7 @@
     "dev:api": "npm run dev -w @taskflow/api",
     "dev:worker": "npm run dev -w @taskflow/worker",
     "dev:web": "npm run dev -w @taskflow/web",
-    "typecheck": "tsc -p packages/shared --noEmit && tsc -p packages/server --noEmit && tsc -p apps/api --noEmit && tsc -p apps/worker --noEmit && tsc -p apps/scheduler --noEmit && tsc -p apps/web --noEmit",
+    "typecheck": "tsc -p packages/shared --noEmit && tsc -p packages/server --noEmit && tsc -p packages/sdk --noEmit && tsc -p apps/api --noEmit && tsc -p apps/worker --noEmit && tsc -p apps/scheduler --noEmit && tsc -p apps/web --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "build:web": "npm run build -w @taskflow/web",
