@@ -18,6 +18,9 @@ MongoDB collections and the indexes that back the access patterns:
 | sideeffects | unique `key` | Idempotent handler receipts |
 | schedules | unique `projectId + name` where `deletedAt` is null | One live name per project |
 | jobrecords | `projectId + scheduleId + createdAt` | Jobs produced by a schedule |
+| workflows | unique `projectId + name` where `deletedAt` is null | One live name per project |
+| workflowruns | `workflowId + createdAt` | Recent runs of one definition |
+| jobrecords | `workflowRunId` | Steps that belong to one run |
 | refreshtokens | `expiresAt` TTL | Drop expired sessions |
 
 `passwordHash` and `keyHash` are excluded from normal queries. API responses return a key prefix, never the hash or the secret.

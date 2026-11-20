@@ -1,6 +1,7 @@
 import { redact, shouldApplyJobStatus, type JobStatus, type RealtimeEvent } from "@taskflow/shared";
 import { JobAttempt, JobRecord, LogEntry } from "./models.js";
 import { logger } from "./logger.js";
+import { syncWorkflowRun } from "./workflow-runs.js";
 
 function truncate(value: string | undefined, max = 8_000) {
   if (!value) return undefined;
@@ -40,6 +41,7 @@ export async function onJobActive(input: {
   job.attemptsMade = Math.max(job.attemptsMade ?? 0, input.attempt);
   if (!job.startedAt) job.startedAt = new Date();
   await job.save();
+  await syncWorkflowRun(job.workflowRunId);
   await JobAttempt.updateOne(
     { jobId: job._id, attemptNumber: input.attempt },
     {
@@ -89,6 +91,7 @@ export async function onJobCompleted(input: {
     job.set("error", undefined);
     await job.save();
   }
+  await syncWorkflowRun(job.workflowRunId);
   await JobAttempt.updateOne(
     { jobId: job._id, attemptNumber: input.attempt },
     {
@@ -154,6 +157,7 @@ export async function onJobFailed(input: {
     if (terminal) job.completedAt = new Date();
     await job.save();
   }
+  await syncWorkflowRun(job.workflowRunId);
   await JobAttempt.updateOne(
     { jobId: job._id, attemptNumber: input.attempt },
     {

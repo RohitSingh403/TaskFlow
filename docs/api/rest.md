@@ -72,6 +72,36 @@ API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `worke
 
 The scheduler process is the only producer. If it is down for more than a minute, missed ticks are skipped.
 
+## Workflows
+
+`POST /projects/:projectId/workflows`
+
+```json
+{
+  "name": "Report then email",
+  "steps": [
+    {
+      "key": "report",
+      "handler": "generate-report",
+      "queue": "reports",
+      "dependsOn": [],
+      "payload": { "reportType": "activity", "format": "pdf", "rangeDays": 7 }
+    },
+    {
+      "key": "email",
+      "handler": "send-email",
+      "queue": "emails",
+      "dependsOn": ["report"],
+      "payload": { "to": "ops@example.com", "subject": "Activity report", "body": "The activity report is ready." }
+    }
+  ]
+}
+```
+
+A workflow has 2 to 8 steps and exactly one final step. A step may wait for several earlier steps. An earlier step can be a dependency of only one later step, because BullMQ flows are trees. Cycles are rejected.
+
+`POST /projects/:projectId/workflows/:workflowId/runs` creates one job per step and submits them together. The email stays waiting until the report completes. If the report fails and has no attempts left, the email does not run. `POST /projects/:projectId/jobs/:jobId/retry` on that failed job lets the rest of the tree continue. Name and description can change after creation. The step list cannot. Deleting a workflow is soft.
+
 ## Queues
 
 `POST /projects/:projectId/queues/:queueId/pause` and `/resume`.

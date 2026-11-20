@@ -9,7 +9,9 @@ TaskFlow runs four processes:
 | `apps/worker` | BullMQ consumers, handler registry, heartbeats, enqueue repair. |
 | `apps/scheduler` | Turns due cron schedules into ordinary jobs. One process holds the Redis leader lock. |
 
-Redis holds BullMQ queues, the API rate-limit counters, and the `taskflow:events` pub/sub channel. MongoDB holds users, projects, queue configuration, job records, attempts, workers, API keys, logs, side-effect receipts, and audit entries.
+Redis holds BullMQ queues, the API rate-limit counters, and the `taskflow:events` pub/sub channel. MongoDB holds users, projects, queue configuration, job records, attempts, workers, API keys, logs, side-effect receipts, schedules, workflow definitions, workflow runs, and audit entries.
+
+A workflow run is one BullMQ flow. The parent job stays in `waiting-children` until every child completes. TaskFlow stores that parent as `waiting` until a worker starts it. The run status is derived from the step records: any failed step fails the run, every step completed completes the run, and an active step makes the run active.
 
 A queue configuration document is not the queue. The queue is the BullMQ key derived as `tf_<projectPublicId>_<queueName>`.
 

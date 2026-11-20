@@ -10,6 +10,7 @@ export const MAX_PAGE_LIMIT = 100;
 export const MAX_PAYLOAD_BYTES = 256 * 1024;
 export const DEFAULT_MAX_WAITING = 10_000;
 export const MAX_SCHEDULES_PER_PROJECT = 50;
+export const MAX_WORKFLOWS_PER_PROJECT = 20;
 export const SCHEDULE_MISSED_GRACE_MS = 60_000;
 export const LOG_RETENTION_SECONDS = 14 * 24 * 60 * 60;
 export const PERCENTILE_SAMPLE_LIMIT = 5_000;

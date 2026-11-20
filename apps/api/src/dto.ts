@@ -1,5 +1,5 @@
-import { deriveWorkerHealth, redact, type JobStatus } from "@taskflow/shared";
-import type { JobDoc, QueueDoc, ScheduleDoc } from "@taskflow/server";
+import { deriveWorkerHealth, redact, validateWorkflowGraph, type JobStatus } from "@taskflow/shared";
+import type { JobDoc, QueueDoc, ScheduleDoc, WorkflowDoc, WorkflowRunDoc } from "@taskflow/server";
 
 export function toUser(user: { publicId: string; name: string; email: string; createdAt?: Date }) {
   return {
@@ -105,6 +105,60 @@ export function toSchedule(schedule: ScheduleDoc) {
     lastJobId: schedule.lastJobId ?? null,
     lastError: schedule.lastError || null,
     createdAt: schedule.createdAt?.toISOString(),
+  };
+}
+
+export function toWorkflow(
+  workflow: WorkflowDoc,
+  extras?: { runCount?: number; lastRun?: WorkflowRunDoc | null },
+) {
+  const graph = validateWorkflowGraph(workflow.steps.map((step) => ({ key: step.key, dependsOn: [...step.dependsOn] })));
+  return {
+    id: workflow.publicId,
+    name: workflow.name,
+    description: workflow.description ?? "",
+    root: graph.ok ? graph.root : null,
+    executionOrder: graph.ok ? graph.executionOrder : workflow.steps.map((step) => step.key),
+    steps: workflow.steps.map((step) => ({
+      key: step.key,
+      handler: step.handler,
+      queue: step.queueName,
+      dependsOn: [...step.dependsOn],
+      payload: redact(step.payload),
+    })),
+    runCount: extras?.runCount ?? 0,
+    lastRun: extras?.lastRun ? toWorkflowRun(extras.lastRun) : null,
+    createdAt: workflow.createdAt?.toISOString(),
+    updatedAt: workflow.updatedAt?.toISOString(),
+  };
+}
+
+export function toWorkflowRun(run: WorkflowRunDoc, jobs: JobDoc[] = []) {
+  const byId = new Map(jobs.map((job) => [job.publicId, job]));
+  return {
+    id: run.publicId,
+    workflowId: run.workflowPublicId,
+    status: run.status,
+    failedStepKey: run.failedStepKey ?? null,
+    startedAt: run.startedAt.toISOString(),
+    completedAt: run.completedAt?.toISOString() ?? null,
+    durationMs: run.durationMs ?? null,
+    createdAt: run.createdAt?.toISOString(),
+    steps: run.steps.map((step) => {
+      const job = byId.get(step.jobId);
+      return {
+        key: step.key,
+        handler: step.handler,
+        queue: step.queueName,
+        dependsOn: [...step.dependsOn],
+        jobId: step.jobId,
+        status: job?.status ?? "waiting",
+        error: job?.error?.message ?? null,
+        durationMs: job?.durationMs ?? null,
+        startedAt: job?.startedAt?.toISOString() ?? null,
+        completedAt: job?.completedAt?.toISOString() ?? null,
+      };
+    }),
   };
 }
 
