@@ -53,6 +53,25 @@ API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `worke
 { "_simulate": { "failUntilAttempt": 1, "delayMs": 200, "errorMessage": "Provider timed out" } }
 ```
 
+## Schedules
+
+`POST /projects/:projectId/schedules`
+
+```json
+{
+  "name": "Morning report",
+  "queue": "reports",
+  "handler": "generate-report",
+  "cron": "0 9 * * *",
+  "timeZone": "Asia/Kolkata",
+  "payload": { "reportType": "sales", "format": "pdf", "rangeDays": 7 }
+}
+```
+
+`cron` is five fields: minute, hour, day of month, month, weekday. `POST /pause` stops future occurrences. `POST /resume` moves `nextRunAt` forward when the stored time is already past, so a resume does not fire a missed tick immediately. Deleting a schedule is soft. Jobs already created keep running.
+
+The scheduler process is the only producer. If it is down for more than a minute, missed ticks are skipped.
+
 ## Queues
 
 `POST /projects/:projectId/queues/:queueId/pause` and `/resume`.

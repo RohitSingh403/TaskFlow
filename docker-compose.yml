@@ -45,6 +45,20 @@ services:
       redis:
         condition: service_healthy
 
+  scheduler:
+    build:
+      context: .
+      dockerfile: apps/scheduler/Dockerfile
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017/taskflow
+      REDIS_URL: redis://redis:6379
+      BULL_PREFIX: taskflow
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   worker:
     build:
       context: .

@@ -215,6 +215,7 @@ export interface JobListQuery {
   priority?: string;
   name?: string;
   jobId?: string;
+  schedule?: string;
   q?: string;
   from?: string;
   to?: string;
@@ -229,6 +230,7 @@ export async function listJobs(project: ProjectDoc, query: JobListQuery) {
   if (query.priority) filter.priority = query.priority;
   if (query.name) filter.name = query.name;
   if (query.jobId) filter.publicId = query.jobId;
+  if (query.schedule) filter.scheduleId = query.schedule;
   if (query.from || query.to) {
     filter.createdAt = {
       ...(query.from ? { $gte: new Date(query.from) } : {}),

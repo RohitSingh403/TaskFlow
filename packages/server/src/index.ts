@@ -5,3 +5,5 @@ export * from "./bull.js";
 export * from "./lifecycle.js";
 export * from "./side-effects.js";
 export * from "./redis.js";
+export * from "./cron.js";
+export * from "./schedules.js";

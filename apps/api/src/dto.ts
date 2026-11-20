@@ -1,5 +1,5 @@
 import { deriveWorkerHealth, redact, type JobStatus } from "@taskflow/shared";
-import type { JobDoc, QueueDoc } from "@taskflow/server";
+import type { JobDoc, QueueDoc, ScheduleDoc } from "@taskflow/server";
 
 export function toUser(user: { publicId: string; name: string; email: string; createdAt?: Date }) {
   return {
@@ -79,6 +79,32 @@ export function toJob(job: JobDoc) {
     startedAt: job.startedAt?.toISOString() ?? null,
     completedAt: job.completedAt?.toISOString() ?? null,
     durationMs: job.durationMs ?? null,
+  };
+}
+
+export function toSchedule(schedule: ScheduleDoc) {
+  return {
+    id: schedule.publicId,
+    name: schedule.name,
+    description: schedule.description ?? "",
+    queueId: schedule.queuePublicId,
+    queue: schedule.queueName,
+    handler: schedule.handler,
+    payload: redact(schedule.payload),
+    cron: schedule.cron,
+    timeZone: schedule.timeZone,
+    priority: schedule.priority,
+    maxAttempts: schedule.maxAttempts,
+    backoffType: schedule.backoffType,
+    backoffDelayMs: schedule.backoffDelayMs,
+    timeoutMs: schedule.timeoutMs,
+    paused: schedule.paused,
+    status: schedule.paused ? "paused" : "active",
+    nextRunAt: schedule.nextRunAt?.toISOString() ?? null,
+    lastRunAt: schedule.lastRunAt?.toISOString() ?? null,
+    lastJobId: schedule.lastJobId ?? null,
+    lastError: schedule.lastError || null,
+    createdAt: schedule.createdAt?.toISOString(),
   };
 }
 

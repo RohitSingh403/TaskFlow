@@ -118,6 +118,7 @@ const jobSchema = new Schema(
     traceId: { type: String, required: true },
     idempotencyKey: { type: String },
     requestHash: { type: String },
+    scheduleId: { type: String },
     enqueued: { type: Boolean, default: false },
     result: { type: Schema.Types.Mixed },
     error: {
@@ -133,7 +134,7 @@ const jobSchema = new Schema(
     createdBy: {
       type: new Schema(
         {
-          type: { type: String, enum: ["user", "api_key"], required: true },
+          type: { type: String, enum: ["user", "api_key", "system"], required: true },
           id: { type: String, required: true },
           label: { type: String, required: true },
         },
@@ -155,6 +156,7 @@ jobSchema.index(
   { projectId: 1, idempotencyKey: 1 },
   { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } },
 );
+jobSchema.index({ projectId: 1, scheduleId: 1, createdAt: -1 });
 
 const attemptSchema = new Schema(
   {
@@ -249,6 +251,53 @@ const sideEffectSchema = new Schema(
   { timestamps: { createdAt: true, updatedAt: false }, versionKey: false },
 );
 
+const scheduleSchema = new Schema(
+  {
+    publicId: { type: String, required: true, unique: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    projectPublicId: { type: String, required: true },
+    queueId: { type: Schema.Types.ObjectId, ref: "QueueConfig", required: true },
+    queuePublicId: { type: String, required: true },
+    queueName: { type: String, required: true },
+    bullQueueName: { type: String, required: true },
+    name: { type: String, required: true },
+    description: { type: String, default: "" },
+    handler: { type: String, required: true },
+    payload: { type: Schema.Types.Mixed, required: true },
+    cron: { type: String, required: true },
+    timeZone: { type: String, required: true },
+    priority: { type: String, enum: PRIORITY_LABELS, required: true },
+    priorityValue: { type: Number, required: true },
+    timeoutMs: { type: Number, required: true },
+    maxAttempts: { type: Number, required: true },
+    backoffType: { type: String, enum: BACKOFF_TYPES, required: true },
+    backoffDelayMs: { type: Number, required: true },
+    paused: { type: Boolean, default: false },
+    nextRunAt: { type: Date, required: true },
+    lastRunAt: { type: Date },
+    lastJobId: { type: String },
+    lastError: { type: String },
+    deletedAt: { type: Date },
+    createdBy: {
+      type: new Schema(
+        {
+          type: { type: String, enum: ["user", "api_key"], required: true },
+          id: { type: String, required: true },
+          label: { type: String, required: true },
+        },
+        { _id: false },
+      ),
+      required: true,
+    },
+  },
+  { timestamps: true, versionKey: false },
+);
+scheduleSchema.index(
+  { projectId: 1, name: 1 },
+  { unique: true, partialFilterExpression: { deletedAt: null } },
+);
+scheduleSchema.index({ paused: 1, deletedAt: 1, nextRunAt: 1 });
+
 const auditSchema = new Schema(
   {
     projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true, index: true },
@@ -273,10 +322,11 @@ export const ApiKey = mongoose.models.ApiKey || mongoose.model("ApiKey", apiKeyS
 export const LogEntry = mongoose.models.LogEntry || mongoose.model("LogEntry", logSchema);
 export const SideEffect = mongoose.models.SideEffect || mongoose.model("SideEffect", sideEffectSchema);
 export const AuditLog = mongoose.models.AuditLog || mongoose.model("AuditLog", auditSchema);
+export const Schedule = mongoose.models.Schedule || mongoose.model("Schedule", scheduleSchema);
 
 export async function ensureIndexes() {
   await Promise.all(
-    [User, RefreshToken, Project, QueueConfig, JobRecord, JobAttempt, WorkerRecord, ApiKey, LogEntry, SideEffect, AuditLog].map((model) =>
+    [User, RefreshToken, Project, QueueConfig, JobRecord, JobAttempt, WorkerRecord, ApiKey, LogEntry, SideEffect, Schedule, AuditLog].map((model) =>
       model.syncIndexes(),
     ),
   );
@@ -286,11 +336,12 @@ export type UserDoc = HydratedDocument<InferSchemaType<typeof userSchema>>;
 export type ProjectDoc = HydratedDocument<InferSchemaType<typeof projectSchema>>;
 export type QueueDoc = HydratedDocument<InferSchemaType<typeof queueSchema>>;
 export type JobDoc = HydratedDocument<InferSchemaType<typeof jobSchema>>;
+export type ScheduleDoc = HydratedDocument<InferSchemaType<typeof scheduleSchema>>;
 export type ApiKeyDoc = HydratedDocument<InferSchemaType<typeof apiKeySchema>>;
 export type WorkerDoc = HydratedDocument<InferSchemaType<typeof workerSchema>>;
 
 export interface Actor {
-  type: "user" | "api_key";
+  type: "user" | "api_key" | "system";
   id: string;
   label: string;
 }

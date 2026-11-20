@@ -12,12 +12,13 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Projects with development and production environments. Development projects may simulate handler failures. Production projects reject that field.
 - Queues with concurrency, an optional rate limit, a waiting-job ceiling, and pause / resume.
 - Job submission by session or API key, with priority, delay, timeout, retry, and idempotency keys.
+- Recurring schedules. A separate scheduler process creates one normal job per cron tick.
 - A separate worker process, heartbeats, and health derived from those heartbeats.
 - Attempt history, structured logs, and dashboard metrics.
 - Socket.IO updates scoped to a project room. The client refetches after reconnect.
 - A fixed handler registry. Callers name a handler. They cannot submit code.
 
-Not in this version: recurring schedules, workflow graphs, alerts, webhooks, team membership, billing, and a client SDK. Those are real follow-on projects, not hidden pages.
+Not in this version: workflow graphs, alerts, webhooks, team membership, billing, and a client SDK. Those are real follow-on projects, not hidden pages.
 
 ## Stack
 
@@ -88,7 +89,7 @@ npm run dev
 - API: http://localhost:4000
 - Health: http://localhost:4000/health
 
-`npm run dev` starts the API, one worker, and the web app. The worker is a separate process. The dashboard does not pretend to spawn it.
+`npm run dev` starts the API, one worker, one scheduler, and the web app. The worker and the scheduler are separate processes. The dashboard does not pretend to spawn them. Run one scheduler. A Redis lock makes an extra scheduler wait instead of creating a second copy of each occurrence.
 
 To run the same processes in containers, set `JWT_ACCESS_SECRET` and `JWT_REFRESH_SECRET`, then:
 
@@ -142,6 +143,8 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | GET | `/projects/:id/queues` | List queues and BullMQ counts |
 | POST | `/projects/:id/queues/:queueId/pause` | Pause a queue |
 | POST | `/projects/:id/jobs` | Submit a job |
+| POST | `/projects/:id/schedules` | Create a recurring schedule |
+| POST | `/projects/:id/schedules/:scheduleId/pause` | Pause future occurrences |
 | GET | `/projects/:id/jobs/:jobId` | Job detail |
 | POST | `/projects/:id/jobs/:jobId/retry` | Retry a failed job |
 | GET | `/projects/:id/analytics/overview` | Operational summary |
@@ -155,6 +158,7 @@ The full request shapes are the Zod schemas in `packages/shared/src/schemas.ts`.
 ```text
 apps/api        Express API and Socket.IO
 apps/worker     BullMQ workers and recovery sweep
+apps/scheduler  Cron schedules into normal jobs
 apps/web        Operations dashboard
 packages/shared Status mapping, schemas, backoff math
 packages/server MongoDB models and queue lifecycle
@@ -174,3 +178,4 @@ packages/server MongoDB models and queue lifecycle
 - Completed BullMQ entries are trimmed. MongoDB is the durable history, and it has no archive job yet. Logs expire after 14 days.
 - Rate limits on the BullMQ worker are per queue and shared through Redis. API rate limits also use Redis.
 - The built-in handlers simulate work. They are the trusted registry a real deployment would replace with its own functions, still without accepting arbitrary code from API callers.
+- A scheduler that is down for more than a minute skips the ticks it missed. It does not replay a backlog when it returns.

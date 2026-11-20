@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   BarChart3,
+  CalendarClock,
   BookOpen,
   Boxes,
   ChevronDown,
@@ -35,6 +36,7 @@ const groups = [
     items: [
       { to: "/queues", label: "Queues", icon: Boxes },
       { to: "/jobs", label: "Jobs", icon: Workflow },
+      { to: "/schedules", label: "Schedules", icon: CalendarClock },
       { to: "/workers", label: "Workers", icon: Server },
     ],
   },

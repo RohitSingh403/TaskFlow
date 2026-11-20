@@ -73,6 +73,30 @@ export interface Job {
   duplicate?: boolean;
 }
 
+export interface Schedule {
+  id: string;
+  name: string;
+  description: string;
+  queueId: string;
+  queue: string;
+  handler: string;
+  payload: Record<string, unknown>;
+  cron: string;
+  timeZone: string;
+  priority: "high" | "medium" | "low";
+  maxAttempts: number;
+  backoffType: "exponential" | "fixed";
+  backoffDelayMs: number;
+  timeoutMs: number;
+  paused: boolean;
+  status: "active" | "paused";
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  lastJobId: string | null;
+  lastError: string | null;
+  createdAt?: string;
+}
+
 export interface Attempt {
   attemptNumber: number;
   workerId: string | null;

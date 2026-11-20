@@ -111,6 +111,7 @@ export const listJobsQuerySchema = z.object({
   priority: z.enum(PRIORITY_LABELS).optional(),
   name: z.string().trim().max(80).optional(),
   jobId: z.string().trim().max(80).optional(),
+  schedule: z.string().trim().max(80).optional(),
   q: z.string().trim().max(120).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
@@ -123,6 +124,38 @@ export const analyticsQuerySchema = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
 });
+
+export const scheduleSchema = z.object({
+  name: z.string().trim().min(2).max(60),
+  description: z.string().trim().max(280).optional(),
+  queue: z.string().trim().regex(QUEUE_NAME_PATTERN),
+  handler: z.string().trim().refine(isHandlerName, "Unknown job handler"),
+  payload: z.record(z.unknown()),
+  cron: z.string().trim().min(5).max(80),
+  timeZone: z.string().trim().min(1).max(80).default("UTC"),
+  priority: z.enum(PRIORITY_LABELS).optional(),
+  maxAttempts: z.number().int().min(1).max(10).optional(),
+  backoffType: z.enum(BACKOFF_TYPES).optional(),
+  backoffDelayMs: z.number().int().min(0).max(86_400_000).optional(),
+  timeoutMs: z.number().int().min(1_000).max(15 * 60 * 1000).optional(),
+});
+
+export const updateScheduleSchema = z
+  .object({
+    name: z.string().trim().min(2).max(60).optional(),
+    description: z.string().trim().max(280).optional(),
+    queue: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
+    handler: z.string().trim().refine(isHandlerName, "Unknown job handler").optional(),
+    payload: z.record(z.unknown()).optional(),
+    cron: z.string().trim().min(5).max(80).optional(),
+    timeZone: z.string().trim().min(1).max(80).optional(),
+    priority: z.enum(PRIORITY_LABELS).optional(),
+    maxAttempts: z.number().int().min(1).max(10).optional(),
+    backoffType: z.enum(BACKOFF_TYPES).optional(),
+    backoffDelayMs: z.number().int().min(0).max(86_400_000).optional(),
+    timeoutMs: z.number().int().min(1_000).max(15 * 60 * 1000).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
 
 export const listLogsQuerySchema = z.object({
   level: z.enum(["debug", "info", "warn", "error"]).optional(),
