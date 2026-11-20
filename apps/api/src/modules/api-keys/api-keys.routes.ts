@@ -5,13 +5,13 @@ import { AppError } from "../../errors.js";
 import { sendCreated, sendOk } from "../../http.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, requireScope, validateBody } from "../../middleware/common.js";
-import { loadProject } from "../../middleware/project.js";
+import { loadProject, requireOwner } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
 import { createApiKey, listApiKeys, revokeApiKey } from "./api-keys.service.js";
 
 export const apiKeyRouter = Router({ mergeParams: true });
 
-apiKeyRouter.use(requireAuth, loadProject, readLimiter);
+apiKeyRouter.use(requireAuth, loadProject, readLimiter, requireOwner);
 
 apiKeyRouter.get(
   "/",

@@ -16,6 +16,7 @@ import {
   Server,
   Settings,
   UserRound,
+  Users,
   Workflow,
 } from "lucide-react";
 import { useEffect } from "react";
@@ -64,6 +65,7 @@ const groups = [
     label: "Configuration",
     items: [
       { to: "/settings/project", label: "Project settings", icon: Settings },
+      { to: "/settings/team", label: "Team", icon: Users },
       { to: "/settings/account", label: "Account settings", icon: UserRound },
     ],
   },

@@ -10,3 +10,4 @@ export * from "./schedules.js";
 export * from "./workflow-runs.js";
 export * from "./alerts.js";
 export * from "./webhooks.js";
+export * from "./access.js";

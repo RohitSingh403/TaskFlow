@@ -172,6 +172,13 @@ export class TaskFlow {
     deliveries: async (webhookId: string) => this.request<WebhookDelivery[]>("GET", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/deliveries`)),
   };
 
+  readonly members = {
+    list: async () => this.request<{ role: "owner" | "member"; members: ProjectMemberResource[] }>("GET", await this.projectPath("/members")),
+    invite: async (input: { email: string }) => this.request<ProjectMemberResource>("POST", await this.projectPath("/members"), { body: input }),
+    remove: async (memberId: string) => this.request<{ deleted: boolean }>("DELETE", await this.projectPath(`/members/${encodeURIComponent(memberId)}`)),
+    leave: async () => this.request<{ left: boolean }>("POST", await this.projectPath("/members/leave")),
+  };
+
   readonly workers = {
     list: async () => this.request<WorkerResource[]>("GET", await this.projectPath("/workers")),
     get: async (workerId: string) => this.request<WorkerResource>("GET", await this.projectPath(`/workers/${encodeURIComponent(workerId)}`)),
@@ -255,6 +262,14 @@ interface WebhookDelivery {
   event: string;
   status: string;
   resourceId: string;
+}
+
+interface ProjectMemberResource {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: "owner" | "member";
 }
 
 interface WorkerResource {
