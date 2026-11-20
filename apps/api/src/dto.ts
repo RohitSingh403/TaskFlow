@@ -1,5 +1,5 @@
 import { deriveWorkerHealth, redact, validateWorkflowGraph, type JobStatus } from "@taskflow/shared";
-import type { AlertEventDoc, AlertRuleDoc, JobDoc, QueueDoc, ScheduleDoc, WorkflowDoc, WorkflowRunDoc } from "@taskflow/server";
+import type { AlertEventDoc, AlertRuleDoc, JobDoc, QueueDoc, ScheduleDoc, WebhookDeliveryDoc, WebhookDoc, WorkflowDoc, WorkflowRunDoc } from "@taskflow/server";
 
 export function toUser(user: { publicId: string; name: string; email: string; createdAt?: Date }) {
   return {
@@ -189,6 +189,36 @@ export function toAlert(alert: AlertEventDoc) {
     status: alert.status,
     createdAt: alert.createdAt?.toISOString(),
     resolvedAt: alert.resolvedAt?.toISOString() ?? null,
+  };
+}
+
+export function toWebhook(webhook: WebhookDoc) {
+  return {
+    id: webhook.publicId,
+    url: webhook.url,
+    description: webhook.description ?? "",
+    events: [...webhook.events],
+    enabled: webhook.enabled,
+    secretPrefix: webhook.secretPrefix,
+    createdAt: webhook.createdAt?.toISOString(),
+  };
+}
+
+export function toWebhookDelivery(delivery: WebhookDeliveryDoc) {
+  return {
+    id: delivery.publicId,
+    webhookId: delivery.webhookPublicId,
+    event: delivery.event,
+    resourceId: delivery.resourceId,
+    status: delivery.status,
+    attempts: delivery.attempts.map((attempt) => ({
+      at: attempt.at.toISOString(),
+      statusCode: attempt.statusCode ?? null,
+      error: attempt.error || null,
+      durationMs: attempt.durationMs,
+    })),
+    createdAt: delivery.createdAt?.toISOString(),
+    completedAt: delivery.completedAt?.toISOString() ?? null,
   };
 }
 

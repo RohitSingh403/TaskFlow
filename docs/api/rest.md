@@ -114,6 +114,18 @@ A workflow has 2 to 8 steps and exactly one final step. A step may wait for seve
 
 The scheduler leader evaluates enabled rules. A true rule opens one alert, then waits out the cooldown before it can open another. `GET /projects/:projectId/alerts` is the history. `POST /projects/:projectId/alerts/:alertId/resolve` marks one resolved. Deleting a rule is soft and stops future checks.
 
+## Webhooks
+
+`POST /projects/:projectId/webhooks`
+
+```json
+{ "url": "https://example.com/taskflow", "description": "Ops", "events": ["job.completed", "job.failed"] }
+```
+
+The create and rotate responses include `secret` once. Later reads return `secretPrefix` only. The secret is `whsec_` plus random data, and it is stored so deliveries can be signed. Production projects accept `https` URLs that do not resolve to a private, loopback, or link-local address. A development project may also use `http://127.0.0.1` or `http://localhost`.
+
+TaskFlow POSTs the same JSON body on every attempt. Headers are `TaskFlow-Delivery`, `TaskFlow-Event`, `TaskFlow-Timestamp`, and `TaskFlow-Signature` (`t=<unix>,v1=<hex>`). The signature is HMAC-SHA256 of `<timestamp>.<raw body>` using the current secret. A receiver should treat the delivery id as its dedupe key. Redirects are not followed. A non-2xx response is retried up to five times. A project can keep 10 endpoints.
+
 ## Queues
 
 `POST /projects/:projectId/queues/:queueId/pause` and `/resume`.

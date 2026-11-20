@@ -1,6 +1,7 @@
 import {
   AuditLog,
   createId,
+  dispatchWebhooks,
   enqueueJob,
   getBullQueue,
   hashRequest,
@@ -321,6 +322,12 @@ export async function cancelJob(project: ProjectDoc, jobId: string, auth: AuthCo
   job.status = "cancelled";
   job.completedAt = new Date();
   await job.save();
+  await dispatchWebhooks({
+    projectId: job.projectId,
+    event: "job.cancelled",
+    resourceId: job.publicId,
+    data: { jobId: job.publicId, queue: job.queueName, name: job.name, status: "cancelled" },
+  });
   await AuditLog.create({
     projectId: project._id,
     actorType: auth.type,

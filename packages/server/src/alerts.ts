@@ -1,6 +1,8 @@
 import { HEARTBEAT_UNHEALTHY_MS, type AlertType } from "@taskflow/shared";
 import { getBullQueue } from "./bull.js";
+import { dispatchWebhooks } from "./webhooks.js";
 import { createId } from "./ids.js";
+import { logger } from "./logger.js";
 import { AlertEvent, AlertRule, JobRecord, QueueConfig, WorkerRecord, type AlertRuleDoc } from "./models.js";
 
 export interface FiredAlert {
@@ -55,6 +57,18 @@ export async function evaluateAlerts(now = new Date()): Promise<FiredAlert[]> {
       ruleId: rule.publicId,
       alertType: rule.type as AlertType,
     });
+    await dispatchWebhooks({
+      projectId: rule.projectId,
+      event: "alert.fired",
+      resourceId: event.publicId,
+      data: {
+        alertId: event.publicId,
+        ruleId: rule.publicId,
+        alertType: rule.type,
+        title: finding.title,
+        message: finding.message,
+      },
+    }).catch((error) => logger.error({ err: error, alertId: event.publicId }, "Webhook dispatch failed"));
   }
   return fired;
 }

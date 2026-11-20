@@ -269,6 +269,30 @@ export interface AuditEntry {
   createdAt: string;
 }
 
+export type WebhookEventName = "job.completed" | "job.failed" | "job.cancelled" | "alert.fired";
+
+export interface WebhookEndpoint {
+  id: string;
+  url: string;
+  description: string;
+  events: WebhookEventName[];
+  enabled: boolean;
+  secretPrefix: string;
+  createdAt?: string;
+  secret?: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  webhookId: string;
+  event: WebhookEventName;
+  resourceId: string;
+  status: "pending" | "succeeded" | "failed";
+  attempts: { at: string; statusCode: number | null; error: string | null; durationMs: number }[];
+  createdAt?: string;
+  completedAt: string | null;
+}
+
 export interface PageMeta {
   page?: number;
   limit?: number;
