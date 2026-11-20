@@ -21,6 +21,7 @@ import {
   findUnsafeKey,
   handlerSchemas,
   isHandlerName,
+  CANCEL_QUEUED_LIMIT,
   DEAD_LETTER_RETRY_LIMIT,
   MAX_PAYLOAD_BYTES,
   priorityToBull,
@@ -347,6 +348,39 @@ export async function retryFailedJobs(
     }
   }
   return { retried: jobIds.length, skipped, jobIds };
+}
+
+export async function cancelQueuedJobs(
+  project: ProjectDoc,
+  input: { queue?: string; limit?: number },
+  auth: AuthContext,
+) {
+  if (input.queue) {
+    const queue = await QueueConfig.findOne({ projectId: project._id, name: input.queue, deletedAt: null });
+    if (!queue) throw new AppError(404, "QUEUE_NOT_FOUND", "Queue not found");
+  }
+  const limit = Math.min(input.limit ?? 20, CANCEL_QUEUED_LIMIT);
+  const queued = await JobRecord.find({
+    projectId: project._id,
+    status: { $in: ["waiting", "delayed"] },
+    workflowRunId: null,
+    ...(input.queue ? { queueName: input.queue } : {}),
+  }).sort({ createdAt: 1 }).limit(limit);
+  const jobIds: string[] = [];
+  let skipped = 0;
+  for (const record of queued) {
+    try {
+      await cancelJob(project, record.publicId, auth);
+      jobIds.push(record.publicId);
+    } catch (error) {
+      if (error instanceof AppError && error.status === 409) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { cancelled: jobIds.length, skipped, jobIds };
 }
 
 export async function cancelJob(project: ProjectDoc, jobId: string, auth: AuthContext) {

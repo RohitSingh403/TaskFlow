@@ -53,6 +53,8 @@ API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `worke
 
 A job that has used its attempts stays `failed` on the same queue. `POST /projects/:projectId/jobs/retry-failed` with `{ "queue": "emails", "limit": 20 }` retries the oldest failed jobs, up to 50. The same job id is queued again. A repeated call does not insert another job record.
 
+`POST /projects/:projectId/jobs/cancel-queued` with the same shape cancels the oldest waiting and delayed jobs, up to 50. Active jobs are skipped. A job that belongs to a workflow run is left alone, because cancelling one step from this list would leave the run without that step. Repeat the call when more than 50 jobs are queued.
+
 `_simulate` is allowed only when the project environment is `development`:
 
 ```json

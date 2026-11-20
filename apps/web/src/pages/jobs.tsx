@@ -11,6 +11,8 @@ import { Button, Card, EmptyState, SelectInput } from "@/components/ui";
 
 export function JobsPage() {
   const projectId = useSession((state) => state.projectId);
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
   const [params, setParams] = useSearchParams();
   const page = Number(params.get("page") ?? "1");
   const status = params.get("status") ?? "";
@@ -32,6 +34,18 @@ export function JobsPage() {
     enabled: Boolean(projectId),
     queryFn: () => api<Queue[]>(`/projects/${projectId}/queues`),
   });
+  const cancelQueued = useMutation({
+    mutationFn: () => api<{ cancelled: number; skipped: number }>(`/projects/${projectId}/jobs/cancel-queued`, {
+      method: "POST",
+      body: JSON.stringify(queue ? { queue, limit: 20 } : { limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.cancelled;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Cancelled 1 queued job" : `Cancelled ${count} queued jobs`);
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not cancel queued jobs"),
+  });
   if (!projectId) return <EmptyState title="Choose a project" body="Create a project before listing jobs." />;
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -45,8 +59,9 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. A recovery sweep repairs missed updates.</p>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
         </div>
+        <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
       </div>
       <div className="flex flex-wrap gap-2">
         <SelectInput className="w-40" value={status} onChange={(event) => update("status", event.target.value)} aria-label="Status">
