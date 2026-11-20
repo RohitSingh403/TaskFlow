@@ -1,4 +1,4 @@
-import type { JobStatus } from "./constants.js";
+import type { AlertType, JobStatus } from "./constants.js";
 import type { WorkerHealth } from "./status.js";
 
 export interface JobUpdatedEvent {
@@ -30,4 +30,14 @@ export interface WorkerUpdatedEvent {
   };
 }
 
-export type RealtimeEvent = JobUpdatedEvent | QueueUpdatedEvent | WorkerUpdatedEvent;
+export interface AlertFiredEvent {
+  type: "alert.fired";
+  projectId: string;
+  data: {
+    alertId: string;
+    ruleId: string;
+    alertType: AlertType;
+  };
+}
+
+export type RealtimeEvent = JobUpdatedEvent | QueueUpdatedEvent | WorkerUpdatedEvent | AlertFiredEvent;

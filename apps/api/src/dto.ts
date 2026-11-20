@@ -1,5 +1,5 @@
 import { deriveWorkerHealth, redact, validateWorkflowGraph, type JobStatus } from "@taskflow/shared";
-import type { JobDoc, QueueDoc, ScheduleDoc, WorkflowDoc, WorkflowRunDoc } from "@taskflow/server";
+import type { AlertEventDoc, AlertRuleDoc, JobDoc, QueueDoc, ScheduleDoc, WorkflowDoc, WorkflowRunDoc } from "@taskflow/server";
 
 export function toUser(user: { publicId: string; name: string; email: string; createdAt?: Date }) {
   return {
@@ -159,6 +159,36 @@ export function toWorkflowRun(run: WorkflowRunDoc, jobs: JobDoc[] = []) {
         completedAt: job?.completedAt?.toISOString() ?? null,
       };
     }),
+  };
+}
+
+export function toAlertRule(rule: AlertRuleDoc) {
+  return {
+    id: rule.publicId,
+    name: rule.name,
+    type: rule.type,
+    enabled: rule.enabled,
+    queue: rule.queueName ?? null,
+    threshold: rule.threshold,
+    windowMs: rule.windowMs ?? null,
+    minSamples: rule.minSamples ?? null,
+    cooldownMs: rule.cooldownMs,
+    lastTriggeredAt: rule.lastTriggeredAt?.toISOString() ?? null,
+    lastError: rule.lastError || null,
+    createdAt: rule.createdAt?.toISOString(),
+  };
+}
+
+export function toAlert(alert: AlertEventDoc) {
+  return {
+    id: alert.publicId,
+    ruleId: alert.rulePublicId,
+    type: alert.type,
+    title: alert.title,
+    message: alert.message,
+    status: alert.status,
+    createdAt: alert.createdAt?.toISOString(),
+    resolvedAt: alert.resolvedAt?.toISOString() ?? null,
   };
 }
 

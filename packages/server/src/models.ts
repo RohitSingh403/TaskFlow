@@ -1,4 +1,6 @@
 import {
+  ALERT_STATUSES,
+  ALERT_TYPES,
   API_SCOPES,
   BACKOFF_TYPES,
   DEFAULT_JOB_SETTINGS,
@@ -385,6 +387,60 @@ const auditSchema = new Schema(
   { timestamps: { createdAt: true, updatedAt: false }, versionKey: false },
 );
 
+const alertRuleSchema = new Schema(
+  {
+    publicId: { type: String, required: true, unique: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    projectPublicId: { type: String, required: true },
+    name: { type: String, required: true },
+    type: { type: String, enum: ALERT_TYPES, required: true },
+    enabled: { type: Boolean, default: true },
+    queueName: { type: String },
+    threshold: { type: Number, default: 0 },
+    windowMs: { type: Number },
+    minSamples: { type: Number },
+    cooldownMs: { type: Number, required: true },
+    lastTriggeredAt: { type: Date },
+    lastError: { type: String, default: "" },
+    deletedAt: { type: Date },
+    createdBy: {
+      type: new Schema(
+        {
+          type: { type: String, enum: ["user", "api_key"], required: true },
+          id: { type: String, required: true },
+          label: { type: String, required: true },
+        },
+        { _id: false },
+      ),
+      required: true,
+    },
+  },
+  { timestamps: true, versionKey: false },
+);
+alertRuleSchema.index(
+  { projectId: 1, name: 1 },
+  { unique: true, partialFilterExpression: { deletedAt: null } },
+);
+alertRuleSchema.index({ enabled: 1, deletedAt: 1 });
+
+const alertEventSchema = new Schema(
+  {
+    publicId: { type: String, required: true, unique: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    projectPublicId: { type: String, required: true },
+    ruleId: { type: Schema.Types.ObjectId, ref: "AlertRule", required: true },
+    rulePublicId: { type: String, required: true },
+    type: { type: String, enum: ALERT_TYPES, required: true },
+    title: { type: String, required: true },
+    message: { type: String, required: true },
+    status: { type: String, enum: ALERT_STATUSES, required: true },
+    resolvedAt: { type: Date },
+  },
+  { timestamps: true, versionKey: false },
+);
+alertEventSchema.index({ projectId: 1, createdAt: -1 });
+alertEventSchema.index({ projectId: 1, status: 1, createdAt: -1 });
+
 export const User = mongoose.models.User || mongoose.model("User", userSchema);
 export const RefreshToken = mongoose.models.RefreshToken || mongoose.model("RefreshToken", refreshTokenSchema);
 export const Project = mongoose.models.Project || mongoose.model("Project", projectSchema);
@@ -399,10 +455,12 @@ export const AuditLog = mongoose.models.AuditLog || mongoose.model("AuditLog", a
 export const Schedule = mongoose.models.Schedule || mongoose.model("Schedule", scheduleSchema);
 export const Workflow = mongoose.models.Workflow || mongoose.model("Workflow", workflowSchema);
 export const WorkflowRun = mongoose.models.WorkflowRun || mongoose.model("WorkflowRun", workflowRunSchema);
+export const AlertRule = mongoose.models.AlertRule || mongoose.model("AlertRule", alertRuleSchema);
+export const AlertEvent = mongoose.models.AlertEvent || mongoose.model("AlertEvent", alertEventSchema);
 
 export async function ensureIndexes() {
   await Promise.all(
-    [User, RefreshToken, Project, QueueConfig, JobRecord, JobAttempt, WorkerRecord, ApiKey, LogEntry, SideEffect, Schedule, Workflow, WorkflowRun, AuditLog].map((model) =>
+    [User, RefreshToken, Project, QueueConfig, JobRecord, JobAttempt, WorkerRecord, ApiKey, LogEntry, SideEffect, Schedule, Workflow, WorkflowRun, AlertRule, AlertEvent, AuditLog].map((model) =>
       model.syncIndexes(),
     ),
   );
@@ -415,6 +473,8 @@ export type JobDoc = HydratedDocument<InferSchemaType<typeof jobSchema>>;
 export type ScheduleDoc = HydratedDocument<InferSchemaType<typeof scheduleSchema>>;
 export type WorkflowDoc = HydratedDocument<InferSchemaType<typeof workflowSchema>>;
 export type WorkflowRunDoc = HydratedDocument<InferSchemaType<typeof workflowRunSchema>>;
+export type AlertRuleDoc = HydratedDocument<InferSchemaType<typeof alertRuleSchema>>;
+export type AlertEventDoc = HydratedDocument<InferSchemaType<typeof alertEventSchema>>;
 export type ApiKeyDoc = HydratedDocument<InferSchemaType<typeof apiKeySchema>>;
 export type WorkerDoc = HydratedDocument<InferSchemaType<typeof workerSchema>>;
 

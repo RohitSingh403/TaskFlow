@@ -120,6 +120,34 @@ export interface Workflow {
   updatedAt?: string;
 }
 
+export type AlertType = "queue.backlog" | "failure.rate" | "worker.offline" | "job.long_running";
+
+export interface AlertRule {
+  id: string;
+  name: string;
+  type: AlertType;
+  enabled: boolean;
+  queue: string | null;
+  threshold: number;
+  windowMs: number | null;
+  minSamples: number | null;
+  cooldownMs: number;
+  lastTriggeredAt: string | null;
+  lastError: string | null;
+  createdAt?: string;
+}
+
+export interface AlertEvent {
+  id: string;
+  ruleId: string;
+  type: AlertType;
+  title: string;
+  message: string;
+  status: "open" | "resolved";
+  createdAt?: string;
+  resolvedAt: string | null;
+}
+
 export interface Schedule {
   id: string;
   name: string;
