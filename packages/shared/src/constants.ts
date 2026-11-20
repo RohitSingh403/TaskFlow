@@ -21,6 +21,12 @@ export const WEBHOOK_EVENTS = ["job.completed", "job.failed", "job.cancelled", "
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 export const MAX_WEBHOOKS_PER_PROJECT = 10;
 export const MAX_PROJECT_MEMBERS = 20;
+export const BILLING_PLANS = ["developer", "scale"] as const;
+export type BillingPlan = (typeof BILLING_PLANS)[number];
+export const PLAN_JOB_ALLOWANCE: Record<BillingPlan, number> = {
+  developer: 2_000,
+  scale: 50_000,
+};
 export const WEBHOOK_MAX_ATTEMPTS = 5;
 export const WEBHOOK_TIMEOUT_MS = 5_000;
 export const WEBHOOK_QUEUE = "webhooks";

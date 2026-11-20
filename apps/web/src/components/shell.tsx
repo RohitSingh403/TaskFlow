@@ -12,6 +12,7 @@ import {
   Webhook,
   LayoutDashboard,
   Menu,
+  Receipt,
   ScrollText,
   Server,
   Settings,
@@ -66,6 +67,7 @@ const groups = [
     items: [
       { to: "/settings/project", label: "Project settings", icon: Settings },
       { to: "/settings/team", label: "Team", icon: Users },
+      { to: "/settings/billing", label: "Billing", icon: Receipt },
       { to: "/settings/account", label: "Account settings", icon: UserRound },
     ],
   },

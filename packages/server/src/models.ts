@@ -60,6 +60,7 @@ const projectSchema = new Schema(
     name: { type: String, required: true },
     description: { type: String, default: "" },
     environment: { type: String, enum: ENVIRONMENTS, required: true },
+    plan: { type: String, enum: ["developer", "scale"], default: "developer" },
     defaultJobSettings: { type: defaultJobSettingsSchema, default: () => ({ ...DEFAULT_JOB_SETTINGS }) },
     deletedAt: { type: Date },
   },

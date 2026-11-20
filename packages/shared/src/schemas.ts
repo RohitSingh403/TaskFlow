@@ -6,7 +6,7 @@ import {
   PRIORITY_LABELS,
   QUEUE_NAME_PATTERN,
 } from "./constants.js";
-import { ALERT_STATUSES, DEFAULT_ALERT_COOLDOWN_MS, WEBHOOK_EVENTS } from "./constants.js";
+import { ALERT_STATUSES, BILLING_PLANS, DEFAULT_ALERT_COOLDOWN_MS, WEBHOOK_EVENTS } from "./constants.js";
 import { isHandlerName } from "./handlers.js";
 import { validateWorkflowGraph } from "./workflow.js";
 
@@ -237,6 +237,10 @@ export const updateAlertRuleSchema = z
 export const listAlertsQuerySchema = z.object({
   status: z.enum(ALERT_STATUSES).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+export const updateBillingSchema = z.object({
+  plan: z.enum(BILLING_PLANS),
 });
 
 export const inviteMemberSchema = z.object({

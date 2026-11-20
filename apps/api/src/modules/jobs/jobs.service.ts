@@ -1,5 +1,7 @@
 import {
   AuditLog,
+  PlanLimitError,
+  assertJobAllowance,
   createId,
   dispatchWebhooks,
   enqueueJob,
@@ -131,6 +133,12 @@ export async function submitJob(project: ProjectDoc, input: SubmitJobInput, auth
     if (existing) return replayOrConflict(existing, requestHash);
   }
 
+  try {
+    await assertJobAllowance(project, 1);
+  } catch (error) {
+    if (error instanceof PlanLimitError) throw new AppError(402, "PLAN_LIMIT", error.message);
+    throw error;
+  }
   await assertCapacity(queue);
 
   const publicId = createId("job");

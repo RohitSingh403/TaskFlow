@@ -24,6 +24,7 @@ import { workflowRouter } from "./modules/workflows/workflows.routes.js";
 import { alertRouter } from "./modules/alerts/alerts.routes.js";
 import { webhookRouter } from "./modules/webhooks/webhooks.routes.js";
 import { memberRouter } from "./modules/members/members.routes.js";
+import { billingRouter } from "./modules/billing/billing.routes.js";
 
 export function createApp() {
   const app = express();
@@ -87,6 +88,7 @@ export function createApp() {
   projects.use("/:projectId/alerts", alertRouter);
   projects.use("/:projectId/webhooks", webhookRouter);
   projects.use("/:projectId/members", memberRouter);
+  projects.use("/:projectId/billing", billingRouter);
   projects.use("/:projectId/workers", workerRouter);
   projects.use("/:projectId/api-keys", apiKeyRouter);
   projects.use("/:projectId/analytics", analyticsRouter);

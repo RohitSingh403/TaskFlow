@@ -1,5 +1,7 @@
 import {
   AuditLog,
+  PlanLimitError,
+  assertJobAllowance,
   JobRecord,
   QueueConfig,
   Workflow,
@@ -221,6 +223,12 @@ export async function deleteWorkflow(project: ProjectDoc, workflowId: string, au
 export async function startWorkflowRun(project: ProjectDoc, workflowId: string, auth: AuthContext) {
   const workflow = await Workflow.findOne({ projectId: project._id, publicId: workflowId, deletedAt: null }) as WorkflowDoc | null;
   if (!workflow) throw new AppError(404, "WORKFLOW_NOT_FOUND", "Workflow not found");
+  try {
+    await assertJobAllowance(project, workflow.steps.length);
+  } catch (error) {
+    if (error instanceof PlanLimitError) throw new AppError(402, "PLAN_LIMIT", error.message);
+    throw error;
+  }
   const queues = new Map<string, QueueDoc>();
   for (const step of workflow.steps) {
     if (queues.has(step.queueName)) continue;

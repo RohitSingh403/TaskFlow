@@ -36,3 +36,5 @@ MongoDB collections and the indexes that back the access patterns:
 Worker `online`, `unhealthy`, and `offline` are computed from `lastHeartbeatAt` and `stoppedAt` at read time. Thresholds are 15 seconds and 45 seconds.
 
 Job history is not expired. Operators who keep this running should add an archive policy before the collection grows without bound. Logs already expire.
+
+A project stores `plan` as `developer` or `scale`. The monthly allowance counts `jobrecords` for that project with `createdAt` inside the current UTC month. The `projectId + createdAt` index serves that count.

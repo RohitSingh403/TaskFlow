@@ -172,6 +172,11 @@ export class TaskFlow {
     deliveries: async (webhookId: string) => this.request<WebhookDelivery[]>("GET", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/deliveries`)),
   };
 
+  readonly billing = {
+    get: async () => this.request<BillingResource>("GET", await this.projectPath("/billing")),
+    update: async (input: { plan: "developer" | "scale" }) => this.request<BillingResource>("PATCH", await this.projectPath("/billing"), { body: input }),
+  };
+
   readonly members = {
     list: async () => this.request<{ role: "owner" | "member"; members: ProjectMemberResource[] }>("GET", await this.projectPath("/members")),
     invite: async (input: { email: string }) => this.request<ProjectMemberResource>("POST", await this.projectPath("/members"), { body: input }),
@@ -262,6 +267,14 @@ interface WebhookDelivery {
   event: string;
   status: string;
   resourceId: string;
+}
+
+interface BillingResource {
+  plan: "developer" | "scale";
+  allowance: number;
+  used: number;
+  periodStart: string;
+  periodEnd: string;
 }
 
 interface ProjectMemberResource {
