@@ -184,6 +184,8 @@ export class TaskFlow {
     invite: async (input: { email: string }) => this.request<ProjectMemberResource>("POST", await this.projectPath("/members"), { body: input }),
     remove: async (memberId: string) => this.request<{ deleted: boolean }>("DELETE", await this.projectPath(`/members/${encodeURIComponent(memberId)}`)),
     leave: async () => this.request<{ left: boolean }>("POST", await this.projectPath("/members/leave")),
+    transfer: async (input: { memberId: string }) =>
+      this.request<{ ownerId: string; previousOwnerId: string }>("POST", await this.projectPath("/members/transfer"), { body: input }),
   };
 
   readonly workers = {

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { useSession, useUi } from "@/stores/session";
-import { Button, Card, EmptyState, Field, TextInput } from "@/components/ui";
+import { Button, Card, EmptyState, Field, SelectInput, TextInput } from "@/components/ui";
 
 interface Member {
   id: string;
@@ -39,6 +40,21 @@ export function TeamPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not remove the member"),
   });
+  const [successor, setSuccessor] = useState("");
+  const transfer = useMutation({
+    mutationFn: (memberId: string) => api<{ ownerId: string }>(`/projects/${projectId}/members/transfer`, {
+      method: "POST",
+      body: JSON.stringify({ memberId }),
+    }),
+    onSuccess: () => {
+      toast("success", "Ownership transferred");
+      setSuccessor("");
+      void client.invalidateQueries({ queryKey: ["members", projectId] });
+      void client.invalidateQueries({ queryKey: ["projects"] });
+      void client.invalidateQueries({ queryKey: ["project", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not transfer ownership"),
+  });
   const leave = useMutation({
     mutationFn: () => api(`/projects/${projectId}/members/leave`, { method: "POST" }),
     onSuccess: () => {
@@ -56,7 +72,7 @@ export function TeamPage() {
       <div>
         <h1 className="text-[28px] font-semibold tracking-tight">Team</h1>
         <p className="max-w-2xl text-[13px] text-muted">
-          The owner invites an existing account by email. Members can run the project. API keys, settings, and deletion stay with the owner.
+          The owner invites an existing account by email. Members can run the project. The owner can hand the project to a member and stays on as a member.
         </p>
       </div>
       {listed.isError ? <EmptyState title="Team unavailable" body="The request failed. Refresh once the API is reachable." /> : null}
@@ -101,6 +117,29 @@ export function TeamPage() {
               <TextInput name="email" type="email" required placeholder="grace@example.com" className="sm:w-80" />
             </Field>
             <Button type="submit" loading={invite.isPending}>Add member</Button>
+          </form>
+        </Card>
+      ) : null}
+      {role === "owner" ? (
+        <Card className="space-y-3 p-4">
+          <form
+            className="space-y-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (successor) transfer.mutate(successor);
+            }}
+          >
+            <Field label="Transfer ownership">
+              <div className="w-full sm:w-80">
+                <SelectInput aria-label="New owner" value={successor} onChange={(event) => setSuccessor(event.target.value)} required>
+                  <option value="">Choose a member</option>
+                  {members.filter((member) => member.role === "member").map((member) => (
+                    <option key={member.id} value={member.id}>{member.name}</option>
+                  ))}
+                </SelectInput>
+              </div>
+            </Field>
+            <Button type="submit" variant="secondary" loading={transfer.isPending} disabled={!successor}>Transfer ownership</Button>
           </form>
         </Card>
       ) : null}

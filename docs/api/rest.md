@@ -148,7 +148,7 @@ Live waiting and active counts come from BullMQ. Submitted, completed, and faile
 { "email": "grace@example.com" }
 ```
 
-The email must already belong to an account. TaskFlow does not send an invitation message. The owner can add 20 members. A member can submit and inspect work. Changing settings, managing API keys, inviting people, and deleting the project stay with the owner. `POST /projects/:projectId/members/leave` removes the signed-in member. An account that cannot see the project still receives `404`.
+The email must already belong to an account. TaskFlow does not send an invitation message. The owner can add 20 members. A member can submit and inspect work. Changing settings, managing API keys, inviting people, and deleting the project stay with the owner. `POST /projects/:projectId/members/transfer` with `{ "memberId": "mem_..." }` makes that member the owner and keeps the previous owner as a member. API keys stay with the project. `POST /projects/:projectId/members/leave` removes the signed-in member. The owner cannot leave. An account that cannot see the project still receives `404`.
 
 ## Billing
 
