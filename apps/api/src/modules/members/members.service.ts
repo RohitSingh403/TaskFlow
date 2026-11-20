@@ -1,4 +1,4 @@
-import { AuditLog, ProjectMember, User, createId, type ProjectDoc, type ProjectMemberDoc } from "@taskflow/server";
+import { AuditLog, Project, ProjectMember, User, createId, type ProjectDoc, type ProjectMemberDoc } from "@taskflow/server";
 import { MAX_PROJECT_MEMBERS } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 import type { AuthContext } from "../../types.js";
@@ -10,7 +10,8 @@ function toMember(member: { id: string; userId: string; name: string; email: str
 export async function listMembers(project: ProjectDoc) {
   const owner = await User.findById(project.ownerId);
   if (!owner) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
-  const members = await ProjectMember.find({ projectId: project._id, deletedAt: null }).sort({ createdAt: 1 }) as ProjectMemberDoc[];
+  const members = (await ProjectMember.find({ projectId: project._id, deletedAt: null }).sort({ createdAt: 1 }) as ProjectMemberDoc[])
+    .filter((member) => String(member.userId) !== String(owner._id));
   return [
     toMember({ id: owner.publicId, userId: owner.publicId, name: owner.name, email: owner.email, role: "owner" }),
     ...members.map((member) => toMember({
@@ -71,6 +72,48 @@ export async function removeMember(project: ProjectDoc, memberId: string, auth: 
     targetId: member.publicId,
     metadata: { email: member.email },
   });
+}
+
+export async function transferOwnership(project: ProjectDoc, memberId: string, auth: AuthContext) {
+  const member = await ProjectMember.findOne({ projectId: project._id, publicId: memberId, deletedAt: null }) as ProjectMemberDoc | null;
+  if (!member) throw new AppError(404, "MEMBER_NOT_FOUND", "Member not found");
+  const previous = await User.findById(project.ownerId);
+  if (!previous) throw new AppError(404, "PROJECT_NOT_FOUND", "Project not found");
+  if (String(member.userId) === String(previous._id)) {
+    throw new AppError(409, "ALREADY_OWNER", "That account already owns the project");
+  }
+
+  const demoted = await ProjectMember.create({
+    publicId: createId("mem"),
+    projectId: project._id,
+    projectPublicId: project.publicId,
+    userId: previous._id,
+    userPublicId: previous.publicId,
+    email: previous.email,
+    name: previous.name,
+  });
+  const claimed = await Project.findOneAndUpdate(
+    { _id: project._id, ownerId: previous._id },
+    { $set: { ownerId: member.userId } },
+  );
+  if (!claimed) {
+    demoted.deletedAt = new Date();
+    await demoted.save();
+    throw new AppError(409, "OWNER_CHANGED", "The owner changed before this transfer finished");
+  }
+  member.deletedAt = new Date();
+  await member.save();
+  project.ownerId = member.userId;
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "project.transferred",
+    targetType: "project",
+    targetId: project.publicId,
+    metadata: { from: previous.publicId, to: member.userPublicId },
+  });
+  return { ownerId: member.userPublicId, previousOwnerId: previous.publicId };
 }
 
 export async function leaveProject(project: ProjectDoc, auth: AuthContext) {

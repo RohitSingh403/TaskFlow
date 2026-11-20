@@ -252,6 +252,10 @@ export const inviteMemberSchema = z.object({
   email: z.string().trim().email().max(200),
 });
 
+export const transferOwnershipSchema = z.object({
+  memberId: z.string().trim().min(4).max(80),
+});
+
 export const webhookSchema = z.object({
   url: z.string().trim().url().max(500),
   description: z.string().trim().max(280).optional(),
