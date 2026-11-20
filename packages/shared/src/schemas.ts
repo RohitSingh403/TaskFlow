@@ -7,6 +7,7 @@ import {
   QUEUE_NAME_PATTERN,
 } from "./constants.js";
 import { isHandlerName } from "./handlers.js";
+import { validateWorkflowGraph } from "./workflow.js";
 
 export const registerSchema = z.object({
   name: z.string().trim().min(2).max(80),
@@ -154,6 +155,32 @@ export const updateScheduleSchema = z
     backoffType: z.enum(BACKOFF_TYPES).optional(),
     backoffDelayMs: z.number().int().min(0).max(86_400_000).optional(),
     timeoutMs: z.number().int().min(1_000).max(15 * 60 * 1000).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
+
+const workflowStepSchema = z.object({
+  key: z.string().trim().regex(/^[a-z][a-z0-9-]{0,30}$/, "Use a lowercase step key, such as report or send-email"),
+  handler: z.string().trim().refine(isHandlerName, "Unknown job handler"),
+  queue: z.string().trim().regex(QUEUE_NAME_PATTERN),
+  payload: z.record(z.unknown()),
+  dependsOn: z.array(z.string().trim()).max(7).default([]),
+});
+
+export const workflowSchema = z
+  .object({
+    name: z.string().trim().min(2).max(60),
+    description: z.string().trim().max(280).optional(),
+    steps: z.array(workflowStepSchema).min(2).max(8),
+  })
+  .superRefine((value, context) => {
+    const graph = validateWorkflowGraph(value.steps);
+    if (!graph.ok) context.addIssue({ code: z.ZodIssueCode.custom, message: graph.message, path: ["steps"] });
+  });
+
+export const updateWorkflowSchema = z
+  .object({
+    name: z.string().trim().min(2).max(60).optional(),
+    description: z.string().trim().max(280).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
 

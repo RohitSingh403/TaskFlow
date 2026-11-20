@@ -73,6 +73,53 @@ export interface Job {
   duplicate?: boolean;
 }
 
+export interface WorkflowStep {
+  key: string;
+  handler: string;
+  queue: string;
+  dependsOn: string[];
+  payload: Record<string, unknown>;
+}
+
+export interface WorkflowRunStep {
+  key: string;
+  handler: string;
+  queue: string;
+  dependsOn: string[];
+  jobId: string;
+  status: JobStatus;
+  error: string | null;
+  durationMs: number | null;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface WorkflowRun {
+  id: string;
+  workflowId: string;
+  status: "waiting" | "active" | "completed" | "failed";
+  failedStepKey: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  createdAt?: string;
+  steps: WorkflowRunStep[];
+}
+
+export interface Workflow {
+  id: string;
+  name: string;
+  description: string;
+  root: string | null;
+  executionOrder: string[];
+  steps: WorkflowStep[];
+  runCount: number;
+  lastRun: WorkflowRun | null;
+  runs?: WorkflowRun[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface Schedule {
   id: string;
   name: string;

@@ -119,6 +119,8 @@ const jobSchema = new Schema(
     idempotencyKey: { type: String },
     requestHash: { type: String },
     scheduleId: { type: String },
+    workflowRunId: { type: String },
+    workflowStepKey: { type: String },
     enqueued: { type: Boolean, default: false },
     result: { type: Schema.Types.Mixed },
     error: {
@@ -157,6 +159,7 @@ jobSchema.index(
   { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } },
 );
 jobSchema.index({ projectId: 1, scheduleId: 1, createdAt: -1 });
+jobSchema.index({ workflowRunId: 1 });
 
 const attemptSchema = new Schema(
   {
@@ -298,6 +301,77 @@ scheduleSchema.index(
 );
 scheduleSchema.index({ paused: 1, deletedAt: 1, nextRunAt: 1 });
 
+const workflowStepSchema = new Schema(
+  {
+    key: { type: String, required: true },
+    handler: { type: String, required: true },
+    queueName: { type: String, required: true },
+    queuePublicId: { type: String, required: true },
+    bullQueueName: { type: String, required: true },
+    payload: { type: Schema.Types.Mixed, required: true },
+    dependsOn: { type: [String], default: [] },
+  },
+  { _id: false },
+);
+
+const workflowSchema = new Schema(
+  {
+    publicId: { type: String, required: true, unique: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    projectPublicId: { type: String, required: true },
+    name: { type: String, required: true },
+    description: { type: String, default: "" },
+    steps: { type: [workflowStepSchema], required: true },
+    deletedAt: { type: Date },
+    createdBy: {
+      type: new Schema(
+        {
+          type: { type: String, enum: ["user", "api_key"], required: true },
+          id: { type: String, required: true },
+          label: { type: String, required: true },
+        },
+        { _id: false },
+      ),
+      required: true,
+    },
+  },
+  { timestamps: true, versionKey: false },
+);
+workflowSchema.index(
+  { projectId: 1, name: 1 },
+  { unique: true, partialFilterExpression: { deletedAt: null } },
+);
+
+const workflowRunStepSchema = new Schema(
+  {
+    key: { type: String, required: true },
+    handler: { type: String, required: true },
+    queueName: { type: String, required: true },
+    dependsOn: { type: [String], default: [] },
+    jobId: { type: String, required: true },
+  },
+  { _id: false },
+);
+
+const workflowRunSchema = new Schema(
+  {
+    publicId: { type: String, required: true, unique: true },
+    projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
+    projectPublicId: { type: String, required: true },
+    workflowId: { type: Schema.Types.ObjectId, ref: "Workflow", required: true },
+    workflowPublicId: { type: String, required: true },
+    status: { type: String, enum: ["waiting", "active", "completed", "failed"], required: true },
+    steps: { type: [workflowRunStepSchema], required: true },
+    failedStepKey: { type: String },
+    startedAt: { type: Date, required: true },
+    completedAt: { type: Date },
+    durationMs: { type: Number },
+  },
+  { timestamps: true, versionKey: false },
+);
+workflowRunSchema.index({ projectId: 1, createdAt: -1 });
+workflowRunSchema.index({ workflowId: 1, createdAt: -1 });
+
 const auditSchema = new Schema(
   {
     projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true, index: true },
@@ -323,10 +397,12 @@ export const LogEntry = mongoose.models.LogEntry || mongoose.model("LogEntry", l
 export const SideEffect = mongoose.models.SideEffect || mongoose.model("SideEffect", sideEffectSchema);
 export const AuditLog = mongoose.models.AuditLog || mongoose.model("AuditLog", auditSchema);
 export const Schedule = mongoose.models.Schedule || mongoose.model("Schedule", scheduleSchema);
+export const Workflow = mongoose.models.Workflow || mongoose.model("Workflow", workflowSchema);
+export const WorkflowRun = mongoose.models.WorkflowRun || mongoose.model("WorkflowRun", workflowRunSchema);
 
 export async function ensureIndexes() {
   await Promise.all(
-    [User, RefreshToken, Project, QueueConfig, JobRecord, JobAttempt, WorkerRecord, ApiKey, LogEntry, SideEffect, Schedule, AuditLog].map((model) =>
+    [User, RefreshToken, Project, QueueConfig, JobRecord, JobAttempt, WorkerRecord, ApiKey, LogEntry, SideEffect, Schedule, Workflow, WorkflowRun, AuditLog].map((model) =>
       model.syncIndexes(),
     ),
   );
@@ -337,6 +413,8 @@ export type ProjectDoc = HydratedDocument<InferSchemaType<typeof projectSchema>>
 export type QueueDoc = HydratedDocument<InferSchemaType<typeof queueSchema>>;
 export type JobDoc = HydratedDocument<InferSchemaType<typeof jobSchema>>;
 export type ScheduleDoc = HydratedDocument<InferSchemaType<typeof scheduleSchema>>;
+export type WorkflowDoc = HydratedDocument<InferSchemaType<typeof workflowSchema>>;
+export type WorkflowRunDoc = HydratedDocument<InferSchemaType<typeof workflowRunSchema>>;
 export type ApiKeyDoc = HydratedDocument<InferSchemaType<typeof apiKeySchema>>;
 export type WorkerDoc = HydratedDocument<InferSchemaType<typeof workerSchema>>;
 

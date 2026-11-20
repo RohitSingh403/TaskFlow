@@ -8,6 +8,7 @@ import {
   JobAttempt,
   JobRecord,
   QueueConfig,
+  syncWorkflowRun,
   type JobDoc,
   type ProjectDoc,
   type QueueDoc,
@@ -288,6 +289,7 @@ export async function retryJob(project: ProjectDoc, jobId: string, auth: AuthCon
   job.completedAt = undefined;
   job.enqueued = true;
   await job.save();
+  await syncWorkflowRun(job.workflowRunId);
   await AuditLog.create({
     projectId: project._id,
     actorType: auth.type,

@@ -11,6 +11,7 @@ import { LoginPage, RegisterPage } from "@/pages/auth";
 import { DashboardPage } from "@/pages/dashboard";
 import { JobDetailPage, JobsPage } from "@/pages/jobs";
 import { SchedulesPage } from "@/pages/schedules";
+import { WorkflowDetailPage, WorkflowsPage } from "@/pages/workflows";
 import { QueueDetailPage, QueuesPage } from "@/pages/queues";
 import { WorkerDetailPage, WorkersPage } from "@/pages/workers";
 import { useSession } from "@/stores/session";
@@ -46,6 +47,9 @@ export function App() {
     const refresh = () => {
       void client.invalidateQueries({ queryKey: ["jobs", projectId] });
       void client.invalidateQueries({ queryKey: ["schedules", projectId] });
+      void client.invalidateQueries({ queryKey: ["workflows", projectId] });
+      void client.invalidateQueries({ queryKey: ["workflow", projectId] });
+      void client.invalidateQueries({ queryKey: ["workflow-run", projectId] });
       void client.invalidateQueries({ queryKey: ["job", projectId] });
       void client.invalidateQueries({ queryKey: ["overview", projectId] });
       void client.invalidateQueries({ queryKey: ["throughput", projectId] });
@@ -81,6 +85,8 @@ export function App() {
         <Route path="queues/:queueId" element={<QueueDetailPage />} />
         <Route path="jobs" element={<JobsPage />} />
         <Route path="schedules" element={<SchedulesPage />} />
+        <Route path="workflows" element={<WorkflowsPage />} />
+        <Route path="workflows/:workflowId" element={<WorkflowDetailPage />} />
         <Route path="jobs/:jobId" element={<JobDetailPage />} />
         <Route path="workers" element={<WorkersPage />} />
         <Route path="workers/:workerId" element={<WorkerDetailPage />} />

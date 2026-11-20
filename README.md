@@ -13,12 +13,13 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Queues with concurrency, an optional rate limit, a waiting-job ceiling, and pause / resume.
 - Job submission by session or API key, with priority, delay, timeout, retry, and idempotency keys.
 - Recurring schedules. A separate scheduler process creates one normal job per cron tick.
+- Workflows. A run is a tree of normal jobs. Children finish before the parent that waits on them.
 - A separate worker process, heartbeats, and health derived from those heartbeats.
 - Attempt history, structured logs, and dashboard metrics.
 - Socket.IO updates scoped to a project room. The client refetches after reconnect.
 - A fixed handler registry. Callers name a handler. They cannot submit code.
 
-Not in this version: workflow graphs, alerts, webhooks, team membership, billing, and a client SDK. Those are real follow-on projects, not hidden pages.
+Not in this version: alerts, webhooks, team membership, billing, and a client SDK. Those are real follow-on projects, not hidden pages.
 
 ## Stack
 
@@ -145,6 +146,8 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | POST | `/projects/:id/jobs` | Submit a job |
 | POST | `/projects/:id/schedules` | Create a recurring schedule |
 | POST | `/projects/:id/schedules/:scheduleId/pause` | Pause future occurrences |
+| POST | `/projects/:id/workflows` | Create a workflow |
+| POST | `/projects/:id/workflows/:workflowId/runs` | Start a workflow run |
 | GET | `/projects/:id/jobs/:jobId` | Job detail |
 | POST | `/projects/:id/jobs/:jobId/retry` | Retry a failed job |
 | GET | `/projects/:id/analytics/overview` | Operational summary |
@@ -179,3 +182,4 @@ packages/server MongoDB models and queue lifecycle
 - Rate limits on the BullMQ worker are per queue and shared through Redis. API rate limits also use Redis.
 - The built-in handlers simulate work. They are the trusted registry a real deployment would replace with its own functions, still without accepting arbitrary code from API callers.
 - A scheduler that is down for more than a minute skips the ticks it missed. It does not replay a backlog when it returns.
+- A workflow is a tree. A step can wait for several earlier steps, and each earlier step can feed only one later step. A failed step keeps every step that waits on it from running until that failed job is retried.

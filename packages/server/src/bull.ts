@@ -1,8 +1,9 @@
-import { Queue, type ConnectionOptions, type JobsOptions } from "bullmq";
+import { FlowProducer, Queue, type ConnectionOptions, type FlowJob, type JobsOptions } from "bullmq";
 
 let connection: ConnectionOptions | null = null;
 let prefix = "taskflow";
 const queues = new Map<string, Queue>();
+let flowProducer: FlowProducer | null = null;
 
 export function configureBull(options: ConnectionOptions, queuePrefix = "taskflow") {
   connection = options;
@@ -26,9 +27,24 @@ export function getBullQueue(name: string): Queue {
   return queue;
 }
 
+export function getFlowProducer(): FlowProducer {
+  if (!flowProducer) {
+    flowProducer = new FlowProducer({ connection: getBullConnection(), prefix });
+  }
+  return flowProducer;
+}
+
+export async function addJobFlow(flow: FlowJob) {
+  return getFlowProducer().add(flow);
+}
+
 export async function closeBullQueues() {
   await Promise.all([...queues.values()].map((queue) => queue.close()));
   queues.clear();
+  if (flowProducer) {
+    await flowProducer.close();
+    flowProducer = null;
+  }
 }
 
 export interface EnqueueInput {

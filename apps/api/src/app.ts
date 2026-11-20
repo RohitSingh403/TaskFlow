@@ -20,6 +20,7 @@ import { projectRouter } from "./modules/projects/projects.routes.js";
 import { queueRouter } from "./modules/queues/queues.routes.js";
 import { scheduleRouter } from "./modules/schedules/schedules.routes.js";
 import { workerRouter } from "./modules/workers/workers.routes.js";
+import { workflowRouter } from "./modules/workflows/workflows.routes.js";
 
 export function createApp() {
   const app = express();
@@ -79,6 +80,7 @@ export function createApp() {
   projects.use("/:projectId/queues", queueRouter);
   projects.use("/:projectId/jobs", jobRouter);
   projects.use("/:projectId/schedules", scheduleRouter);
+  projects.use("/:projectId/workflows", workflowRouter);
   projects.use("/:projectId/workers", workerRouter);
   projects.use("/:projectId/api-keys", apiKeyRouter);
   projects.use("/:projectId/analytics", analyticsRouter);

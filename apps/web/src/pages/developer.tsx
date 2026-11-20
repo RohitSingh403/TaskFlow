@@ -120,6 +120,8 @@ export function DocsPage() {
     ["POST", "/projects/:id/jobs/:jobId/retry", "Retry a failed job"],
     ["POST", "/projects/:id/schedules", "Create a recurring schedule"],
     ["POST", "/projects/:id/schedules/:scheduleId/pause", "Stop future occurrences"],
+    ["POST", "/projects/:id/workflows", "Create a workflow of dependent jobs"],
+    ["POST", "/projects/:id/workflows/:workflowId/runs", "Start one run of that workflow"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
   ];
   return (
