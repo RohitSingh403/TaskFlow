@@ -7,6 +7,7 @@ import { api, restoreSession } from "@/lib/api";
 import type { User } from "@/lib/types";
 import { AccountPage, ApiKeysPage, DocsPage, ProjectSettingsPage } from "@/pages/developer";
 import { TeamPage } from "@/pages/team";
+import { BillingPage } from "@/pages/billing";
 import { ActivityPage, AnalyticsPage, LogsPage } from "@/pages/observe";
 import { LoginPage, RegisterPage } from "@/pages/auth";
 import { DashboardPage } from "@/pages/dashboard";
@@ -105,6 +106,7 @@ export function App() {
         <Route path="docs" element={<DocsPage />} />
         <Route path="settings/project" element={<ProjectSettingsPage />} />
         <Route path="settings/team" element={<TeamPage />} />
+        <Route path="settings/billing" element={<BillingPage />} />
         <Route path="settings/account" element={<AccountPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

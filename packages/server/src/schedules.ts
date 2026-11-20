@@ -6,6 +6,7 @@ import {
   simulationDecision,
   type RealtimeEvent,
 } from "@taskflow/shared";
+import { PlanLimitError, assertJobAllowance } from "./billing.js";
 import { CronError, nextCronOccurrence } from "./cron.js";
 import { createId, isDuplicateKeyError } from "./ids.js";
 import { logger } from "./logger.js";
@@ -125,6 +126,22 @@ export async function produceDueSchedules(now = new Date(), publish?: (event: Re
         { $set: { nextRunAt: following, lastError: "Skipped missed ticks while the scheduler was not running" } },
       );
       continue;
+    }
+
+    const project = await Project.findById(schedule.projectId);
+    if (project) {
+      try {
+        await assertJobAllowance(project, 1, now);
+      } catch (error) {
+        if (error instanceof PlanLimitError) {
+          await Schedule.updateOne(
+            { _id: schedule._id, nextRunAt: occurrence, paused: false, deletedAt: null },
+            { $set: { nextRunAt: following, lastError: error.message } },
+          );
+          continue;
+        }
+        throw error;
+      }
     }
 
     const queue = await QueueConfig.findOne({ _id: schedule.queueId, deletedAt: null });

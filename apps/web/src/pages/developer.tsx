@@ -126,6 +126,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/alerts/:alertId/resolve", "Mark an alert resolved"],
     ["POST", "/projects/:id/webhooks", "Register a signed outbound endpoint"],
     ["POST", "/projects/:id/members", "Add an existing account to the project"],
+    ["GET", "/projects/:id/billing", "Read this month's job allowance"],
     ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
   ];
