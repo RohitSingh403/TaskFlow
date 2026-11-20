@@ -11,6 +11,7 @@ export interface Project {
   name: string;
   description: string;
   environment: "development" | "production";
+  jobRetentionDays?: number;
   createdAt?: string;
 }
 

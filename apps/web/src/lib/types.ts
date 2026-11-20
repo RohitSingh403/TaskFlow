@@ -11,6 +11,7 @@ export interface Project {
   description: string;
   environment: "development" | "production";
   role?: "owner" | "member";
+  jobRetentionDays: number;
   defaultJobSettings: {
     maxAttempts: number;
     backoffType: "exponential" | "fixed";

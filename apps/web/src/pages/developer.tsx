@@ -129,6 +129,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/members", "Add an existing account to the project"],
     ["POST", "/projects/:id/members/transfer", "Make a member the project owner"],
     ["GET", "/projects/:id/billing", "Read this month's job allowance"],
+    ["PATCH", "/projects/:id", "Change project settings, including job retention"],
     ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
   ];
@@ -236,6 +237,7 @@ export function ProjectSettingsPage() {
               name: String(form.get("name") ?? ""),
               description: String(form.get("description") ?? ""),
               environment: String(form.get("environment") ?? data.environment),
+              jobRetentionDays: Number(form.get("jobRetentionDays")),
               defaultJobSettings: {
                 maxAttempts: Number(form.get("maxAttempts")),
                 backoffType: String(form.get("backoffType")),
@@ -271,14 +273,17 @@ export function ProjectSettingsPage() {
             </Field>
             <Field label="Backoff base ms"><TextInput name="backoffDelayMs" defaultValue={String(data.defaultJobSettings.backoffDelayMs)} /></Field>
             <Field label="Timeout ms"><TextInput name="timeoutMs" defaultValue={String(data.defaultJobSettings.timeoutMs)} /></Field>
+            <Field label="Keep finished jobs (days)">
+              <TextInput name="jobRetentionDays" type="number" min={1} max={365} defaultValue={String(data.jobRetentionDays ?? 30)} />
+            </Field>
           </div>
-          <p className="text-[12px] text-muted">Usage: {data.usage?.jobs ?? 0} jobs · {data.usage?.failedJobs ?? 0} failed · {data.usage?.activeKeys ?? 0} active keys</p>
+          <p className="text-[12px] text-muted">Finished, failed, and cancelled jobs older than this are deleted by the scheduler. Waiting and active jobs stay. Usage: {data.usage?.jobs ?? 0} jobs · {data.usage?.failedJobs ?? 0} failed · {data.usage?.activeKeys ?? 0} active keys</p>
           {data.role === "member" ? null : <Button type="submit" loading={save.isPending}>Save</Button>}
         </form>
       </Card>
       {data.role === "member" ? null : <Card className="border-danger/40 p-4">
         <h2 className="font-semibold">Delete project</h2>
-        <p className="mt-1 text-[13px] text-muted">Queues are paused and hidden. Job history remains in MongoDB.</p>
+        <p className="mt-1 text-[13px] text-muted">Queues are paused and hidden. Finished jobs are still deleted once they pass the retention window.</p>
         <Button className="mt-3" variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>Delete project</Button>
       </Card>}
     </div>

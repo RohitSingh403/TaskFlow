@@ -99,6 +99,11 @@ export class TaskFlow {
     return `/projects/${await this.projectId()}${suffix}`;
   }
 
+  readonly projects = {
+    update: async (input: { name?: string; description?: string; environment?: "development" | "production"; jobRetentionDays?: number }) =>
+      this.request<Project>("PATCH", await this.projectPath(""), { body: input }),
+  };
+
   readonly jobs = {
     create: async (input: SubmitJobInput) => {
       const headers = input.idempotencyKey ? { "idempotency-key": input.idempotencyKey } : undefined;
