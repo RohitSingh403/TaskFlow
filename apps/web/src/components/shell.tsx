@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   BarChart3,
+  Bell,
   CalendarClock,
   GitBranch,
   BookOpen,
@@ -47,6 +48,7 @@ const groups = [
     items: [
       { to: "/logs", label: "Logs", icon: ScrollText },
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
+      { to: "/alerts", label: "Alerts", icon: Bell },
     ],
   },
   {

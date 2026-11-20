@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "@/lib/api";
 import { formatDuration, formatNumber, formatPercent, formatWhen } from "@/lib/format";
-import type { Job, Overview, Project, Throughput } from "@/lib/types";
+import type { AlertEvent, Job, Overview, Project, Throughput } from "@/lib/types";
 import { useSession, useUi } from "@/stores/session";
 import { HealthPill, JobStatusPill } from "@/components/status";
 import { Button, Card, EmptyState, Field, SelectInput, Skeleton, TextInput } from "@/components/ui";
@@ -23,6 +23,12 @@ export function DashboardPage() {
     queryKey: ["throughput", projectId, range],
     enabled: Boolean(projectId),
     queryFn: () => api<Throughput>(`/projects/${projectId}/analytics/throughput?range=${range}`),
+    refetchInterval: 15_000,
+  });
+  const openAlerts = useQuery({
+    queryKey: ["alerts", projectId, "open"],
+    enabled: Boolean(projectId),
+    queryFn: () => api<AlertEvent[]>(`/projects/${projectId}/alerts?status=open&limit=3`),
     refetchInterval: 15_000,
   });
   const jobs = useQuery({
@@ -138,6 +144,16 @@ export function DashboardPage() {
         <Card className="p-4">
           <h2 className="text-base font-semibold">Needs attention</h2>
           <div className="mt-3 space-y-3">
+            {(openAlerts.data?.data.length ?? 0) > 0 ? (
+              <div className="space-y-2">
+                {openAlerts.data?.data.map((alert) => (
+                  <Link key={alert.id} to="/alerts" className="block rounded-[10px] border border-warning/40 px-3 py-2 hover:bg-white/5">
+                    <div className="text-[13px] font-medium">{alert.title}</div>
+                    <p className="mt-1 line-clamp-2 text-[12px] text-muted">{alert.message}</p>
+                  </Link>
+                ))}
+              </div>
+            ) : null}
             {data.recentFailures.length === 0 ? <p className="text-[13px] text-muted">No failed jobs in the latest records.</p> : null}
             {data.recentFailures.map((failure) => (
               <Link key={failure.id} to={`/jobs/${failure.id}`} className="block rounded-[10px] border border-line px-3 py-2 hover:bg-white/5">

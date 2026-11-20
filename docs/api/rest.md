@@ -102,6 +102,18 @@ A workflow has 2 to 8 steps and exactly one final step. A step may wait for seve
 
 `POST /projects/:projectId/workflows/:workflowId/runs` creates one job per step and submits them together. The email stays waiting until the report completes. If the report fails and has no attempts left, the email does not run. `POST /projects/:projectId/jobs/:jobId/retry` on that failed job lets the rest of the tree continue. Name and description can change after creation. The step list cannot. Deleting a workflow is soft.
 
+## Alerts
+
+`POST /projects/:projectId/alerts/rules`
+
+```json
+{ "type": "queue.backlog", "name": "Email backlog", "queue": "emails", "threshold": 100 }
+```
+
+`type` is `queue.backlog`, `failure.rate`, `worker.offline`, or `job.long_running`. A failure-rate rule uses `threshold` as a percent and skips until `minSamples` jobs have finished in `windowMs`. A long-running rule uses `threshold` as milliseconds a job has stayed active. `cooldownMs` defaults to 15 minutes.
+
+The scheduler leader evaluates enabled rules. A true rule opens one alert, then waits out the cooldown before it can open another. `GET /projects/:projectId/alerts` is the history. `POST /projects/:projectId/alerts/:alertId/resolve` marks one resolved. Deleting a rule is soft and stops future checks.
+
 ## Queues
 
 `POST /projects/:projectId/queues/:queueId/pause` and `/resume`.

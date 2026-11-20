@@ -122,6 +122,8 @@ export function DocsPage() {
     ["POST", "/projects/:id/schedules/:scheduleId/pause", "Stop future occurrences"],
     ["POST", "/projects/:id/workflows", "Create a workflow of dependent jobs"],
     ["POST", "/projects/:id/workflows/:workflowId/runs", "Start one run of that workflow"],
+    ["POST", "/projects/:id/alerts/rules", "Create a backlog, failure, offline, or long-running alert"],
+    ["POST", "/projects/:id/alerts/:alertId/resolve", "Mark an alert resolved"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
   ];
   return (

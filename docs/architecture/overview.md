@@ -13,6 +13,8 @@ Redis holds BullMQ queues, the API rate-limit counters, and the `taskflow:events
 
 A workflow run is one BullMQ flow. The parent job stays in `waiting-children` until every child completes. TaskFlow stores that parent as `waiting` until a worker starts it. The run status is derived from the step records: any failed step fails the run, every step completed completes the run, and an active step makes the run active.
 
+The same scheduler leader evaluates alert rules after it produces due schedules. An alert is a MongoDB record. It is not an outbound webhook.
+
 A queue configuration document is not the queue. The queue is the BullMQ key derived as `tf_<projectPublicId>_<queueName>`.
 
 Workers poll queue configuration every few seconds. They open one BullMQ `Worker` per live queue, using that queue's concurrency and optional rate limit. Pause is stored on the queue in Redis. The worker converges Redis to the MongoDB `isPaused` flag, then re-reads the flag so a stale poll does not undo a newer pause.

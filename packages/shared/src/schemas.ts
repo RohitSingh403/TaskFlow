@@ -6,6 +6,7 @@ import {
   PRIORITY_LABELS,
   QUEUE_NAME_PATTERN,
 } from "./constants.js";
+import { ALERT_STATUSES, DEFAULT_ALERT_COOLDOWN_MS } from "./constants.js";
 import { isHandlerName } from "./handlers.js";
 import { validateWorkflowGraph } from "./workflow.js";
 
@@ -183,6 +184,60 @@ export const updateWorkflowSchema = z
     description: z.string().trim().max(280).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
+
+const alertName = z.string().trim().min(2).max(60);
+const alertCooldown = z.number().int().min(60_000).max(24 * 60 * 60 * 1000).default(DEFAULT_ALERT_COOLDOWN_MS);
+
+export const alertRuleSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("queue.backlog"),
+    name: alertName,
+    queue: z.string().trim().regex(QUEUE_NAME_PATTERN),
+    threshold: z.number().int().min(1).max(100_000),
+    cooldownMs: alertCooldown,
+    enabled: z.boolean().default(true),
+  }),
+  z.object({
+    type: z.literal("failure.rate"),
+    name: alertName,
+    queue: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
+    threshold: z.number().int().min(1).max(100),
+    windowMs: z.number().int().min(60_000).max(24 * 60 * 60 * 1000).default(15 * 60 * 1000),
+    minSamples: z.number().int().min(1).max(1_000).default(5),
+    cooldownMs: alertCooldown,
+    enabled: z.boolean().default(true),
+  }),
+  z.object({
+    type: z.literal("worker.offline"),
+    name: alertName,
+    cooldownMs: alertCooldown,
+    enabled: z.boolean().default(true),
+  }),
+  z.object({
+    type: z.literal("job.long_running"),
+    name: alertName,
+    queue: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
+    threshold: z.number().int().min(10_000).max(24 * 60 * 60 * 1000),
+    cooldownMs: alertCooldown,
+    enabled: z.boolean().default(true),
+  }),
+]);
+
+export const updateAlertRuleSchema = z
+  .object({
+    name: alertName.optional(),
+    enabled: z.boolean().optional(),
+    threshold: z.number().int().min(1).max(24 * 60 * 60 * 1000).optional(),
+    windowMs: z.number().int().min(60_000).max(24 * 60 * 60 * 1000).optional(),
+    minSamples: z.number().int().min(1).max(1_000).optional(),
+    cooldownMs: z.number().int().min(60_000).max(24 * 60 * 60 * 1000).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
+
+export const listAlertsQuerySchema = z.object({
+  status: z.enum(ALERT_STATUSES).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
 
 export const listLogsQuerySchema = z.object({
   level: z.enum(["debug", "info", "warn", "error"]).optional(),

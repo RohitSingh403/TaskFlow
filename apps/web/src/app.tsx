@@ -12,6 +12,7 @@ import { DashboardPage } from "@/pages/dashboard";
 import { JobDetailPage, JobsPage } from "@/pages/jobs";
 import { SchedulesPage } from "@/pages/schedules";
 import { WorkflowDetailPage, WorkflowsPage } from "@/pages/workflows";
+import { AlertsPage } from "@/pages/alerts";
 import { QueueDetailPage, QueuesPage } from "@/pages/queues";
 import { WorkerDetailPage, WorkersPage } from "@/pages/workers";
 import { useSession } from "@/stores/session";
@@ -58,11 +59,14 @@ export function App() {
       void client.invalidateQueries({ queryKey: ["queues", projectId] });
       void client.invalidateQueries({ queryKey: ["workers", projectId] });
       void client.invalidateQueries({ queryKey: ["logs", projectId] });
+      void client.invalidateQueries({ queryKey: ["alerts", projectId] });
+      void client.invalidateQueries({ queryKey: ["alert-rules", projectId] });
     };
     socket.on("connect", () => socket.emit("project:join", projectId));
     socket.on("job.updated", refresh);
     socket.on("queue.updated", refresh);
     socket.on("worker.updated", refresh);
+    socket.on("alert.fired", refresh);
     socket.on("connect", refresh);
     return () => {
       socket.close();
@@ -92,6 +96,7 @@ export function App() {
         <Route path="workers/:workerId" element={<WorkerDetailPage />} />
         <Route path="logs" element={<LogsPage />} />
         <Route path="analytics" element={<AnalyticsPage />} />
+        <Route path="alerts" element={<AlertsPage />} />
         <Route path="keys" element={<ApiKeysPage />} />
         <Route path="docs" element={<DocsPage />} />
         <Route path="settings/project" element={<ProjectSettingsPage />} />

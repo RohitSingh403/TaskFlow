@@ -5,6 +5,7 @@ import {
   createRedis,
   ensureIndexes,
   logger,
+  evaluateAlerts,
   produceDueSchedules,
   randomToken,
   redisOptionsFromUrl,
@@ -44,6 +45,15 @@ async function tick() {
       await redis.publish(EVENTS_CHANNEL, JSON.stringify(event));
     });
     if (result.produced > 0) logger.info({ produced: result.produced }, "Scheduler produced jobs");
+    const alerts = await evaluateAlerts(new Date());
+    for (const alert of alerts) {
+      await redis.publish(EVENTS_CHANNEL, JSON.stringify({
+      type: "alert.fired",
+      projectId: alert.projectId,
+      data: { alertId: alert.alertId, ruleId: alert.ruleId, alertType: alert.alertType },
+    }));
+    }
+    if (alerts.length > 0) logger.info({ alerts: alerts.length }, "Scheduler opened alerts");
   } catch (error) {
     logger.error({ err: error }, "Scheduler tick failed");
   } finally {
