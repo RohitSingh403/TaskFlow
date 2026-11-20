@@ -21,8 +21,9 @@ jobs:
         image: mongo:7
         ports:
           - 27017:27017
+        # Quote the eval script. An unquoted parenthesis is a shell error, so mongosh never runs.
         options: >-
-          --health-cmd "mongosh --quiet --eval db.adminCommand('ping').ok"
+          --health-cmd "mongosh --quiet --host 127.0.0.1 --eval 'db.adminCommand(\"ping\").ok'"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
