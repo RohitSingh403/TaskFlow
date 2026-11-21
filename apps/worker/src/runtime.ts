@@ -69,6 +69,9 @@ export async function startWorkerRuntime(options: RuntimeOptions) {
   webhookWorker.on("failed", (job, error) => {
     logger.error({ err: error, deliveryId: job?.id }, "Webhook delivery attempt failed");
   });
+  webhookWorker.on("error", (error) => {
+    logger.error({ err: error, workerId }, "Webhook worker connection error");
+  });
 
   async function publish(event: RealtimeEvent) {
     await publisher.publish(EVENTS_CHANNEL, JSON.stringify(event));
@@ -333,6 +336,10 @@ export async function startWorkerRuntime(options: RuntimeOptions) {
       stopped = true;
       clearInterval(poll);
       clearInterval(sweeper);
+      const deadline = Date.now() + 2_000;
+      while (polling && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 25));
+      }
       await WorkerRecord.updateOne(
         { workerId },
         { $set: { stoppedAt: new Date(), activeJobs: 0, activeJobIds: [], lastHeartbeatAt: new Date() } },
