@@ -128,6 +128,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/jobs/:jobId/retry", "Retry a failed job"],
     ["POST", "/projects/:id/jobs/:jobId/replay", "Queue a new copy of a job"],
     ["POST", "/projects/:id/jobs/:jobId/promote", "Run a delayed job now"],
+    ["POST", "/projects/:id/jobs/:jobId/reschedule", "Give a waiting or delayed job a new delay"],
     ["POST", "/projects/:id/jobs/retry-failed", "Retry up to 50 failed jobs"],
     ["POST", "/projects/:id/jobs/cancel-queued", "Cancel up to 50 waiting or delayed jobs"],
     ["POST", "/projects/:id/schedules", "Create a recurring schedule"],
