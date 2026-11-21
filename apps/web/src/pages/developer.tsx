@@ -143,6 +143,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/alerts/rules/:ruleId/silence", "Skip a rule until a chosen time"],
     ["POST", "/projects/:id/alerts/:alertId/resolve", "Mark an alert resolved"],
     ["POST", "/projects/:id/webhooks", "Register a signed outbound endpoint"],
+    ["PATCH", "/projects/:id/webhooks/:webhookId", "Change a webhook URL or its events"],
     ["POST", "/projects/:id/webhooks/:webhookId/test", "Queue a signed test delivery"],
     ["POST", "/projects/:id/webhooks/:webhookId/deliveries/:deliveryId/redeliver", "Queue the same delivery again"],
     ["POST", "/projects/:id/members", "Add an existing account to the project"],

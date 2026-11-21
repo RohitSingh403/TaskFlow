@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import type { WebhookDelivery, WebhookEndpoint, WebhookEventName } from "@/lib/types";
@@ -18,6 +18,7 @@ export function WebhooksPage() {
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<WebhookEndpoint | null>(null);
   const [secret, setSecret] = useState("");
   const [rotateId, setRotateId] = useState<string | null>(null);
   const listed = useQuery({
@@ -78,7 +79,7 @@ export function WebhooksPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Webhooks</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Send test queues a webhook.test delivery on this endpoint without waiting for a job. Rotate replaces the signing secret. Deliveries that have not been sent use the new one. Send again queues that same delivery id. Receivers should ignore a delivery id they have already handled.
+            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Edit changes the URL or events and keeps the endpoint id and signing secret. Send test queues a webhook.test delivery without waiting for a job. Rotate replaces the signing secret. Deliveries that have not been sent use the current URL and secret. Send again queues that same delivery id. Receivers should ignore a delivery id they have already handled.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New webhook</Button>
@@ -110,6 +111,7 @@ export function WebhooksPage() {
                   <td className="mono px-4 py-3 text-[12px]">{hook.secretPrefix}</td>
                   <td className="px-4 py-3">{hook.enabled ? "Enabled" : "Paused"}</td>
                   <td className="px-4 py-3 text-right">
+                    <button type="button" className="mr-3 text-muted hover:text-ink" onClick={() => setEditing(hook)}>Edit</button>
                     {hook.enabled ? <button type="button" className="mr-3 text-muted hover:text-ink" onClick={() => test.mutate(hook.id)}>Send test</button> : null}
                     <button type="button" className="mr-3 text-muted hover:text-ink" onClick={() => setRotateId(hook.id)}>Rotate</button>
                     <button type="button" className="mr-3 text-muted hover:text-ink" onClick={() => toggle.mutate(hook)}>{hook.enabled ? "Pause" : "Enable"}</button>
@@ -156,6 +158,7 @@ export function WebhooksPage() {
           </table>
         )}
       </Card>
+      <EditWebhook hook={editing} projectId={projectId} onClose={() => setEditing(null)} />
       <CreateWebhook
         open={open}
         projectId={projectId}
@@ -177,6 +180,67 @@ export function WebhooksPage() {
         <div className="mt-4 flex justify-end"><Button onClick={() => setSecret("")}>Done</Button></div>
       </Dialog>
     </div>
+  );
+}
+
+function EditWebhook({ hook, projectId, onClose }: { hook: WebhookEndpoint | null; projectId: string; onClose: () => void }) {
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [url, setUrl] = useState("");
+  const [description, setDescription] = useState("");
+  const [events, setEvents] = useState<WebhookEventName[]>([]);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!hook) return;
+    setUrl(hook.url);
+    setDescription(hook.description);
+    setEvents(hook.events);
+    setError("");
+  }, [hook]);
+  const save = useMutation({
+    mutationFn: () => api<WebhookEndpoint>(`/projects/${projectId}/webhooks/${hook?.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ url, description, events }),
+    }),
+    onSuccess: () => {
+      toast("success", "Webhook updated");
+      setError("");
+      onClose();
+      void client.invalidateQueries({ queryKey: ["webhooks", projectId] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : "Could not update the webhook"),
+  });
+  return (
+    <Dialog open={Boolean(hook)} title="Edit webhook" description="The endpoint id and signing secret stay. The URL is checked again at delivery time." onClose={onClose}>
+      <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); save.mutate(); }}>
+        <Field label="URL">
+          <TextInput value={url} onChange={(event) => setUrl(event.target.value)} aria-label="Webhook URL" required />
+        </Field>
+        <Field label="Description">
+          <TextInput value={description} onChange={(event) => setDescription(event.target.value)} aria-label="Webhook description" placeholder="Optional" />
+        </Field>
+        <fieldset className="space-y-2">
+          <legend className="text-[12px] font-medium text-muted">Events</legend>
+          {eventOptions.map((option) => (
+            <label key={option.id} className="flex items-center gap-2 text-[13px]">
+              <input
+                type="checkbox"
+                checked={events.includes(option.id)}
+                onChange={(event) => {
+                  setEvents((current) => event.target.checked ? [...current, option.id] : current.filter((item) => item !== option.id));
+                }}
+              />
+              {option.label}
+            </label>
+          ))}
+        </fieldset>
+        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={save.isPending} disabled={events.length === 0}>Save</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
