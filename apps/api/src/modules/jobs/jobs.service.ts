@@ -227,6 +227,7 @@ export interface JobListQuery {
   priority?: string;
   name?: string;
   jobId?: string;
+  idempotencyKey?: string;
   schedule?: string;
   q?: string;
   from?: string;
@@ -242,6 +243,7 @@ export async function listJobs(project: ProjectDoc, query: JobListQuery) {
   if (query.priority) filter.priority = query.priority;
   if (query.name) filter.name = query.name;
   if (query.jobId) filter.publicId = query.jobId;
+  if (query.idempotencyKey) filter.idempotencyKey = query.idempotencyKey;
   if (query.schedule) filter.scheduleId = query.schedule;
   if (query.from || query.to) {
     filter.createdAt = {

@@ -67,6 +67,7 @@ export interface ListJobsQuery {
   priority?: Job["priority"];
   name?: string;
   jobId?: string;
+  idempotencyKey?: string;
   q?: string;
   from?: string;
   to?: string;

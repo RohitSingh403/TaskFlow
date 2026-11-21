@@ -18,6 +18,7 @@ export function JobsPage() {
   const status = params.get("status") ?? "";
   const queue = params.get("queue") ?? "";
   const q = params.get("q") ?? "";
+  const idempotencyKey = params.get("idempotencyKey") ?? "";
   const schedule = params.get("schedule") ?? "";
   const from = params.get("from") ?? "";
   const to = params.get("to") ?? "";
@@ -25,6 +26,7 @@ export function JobsPage() {
   if (status) query.set("status", status);
   if (queue) query.set("queue", queue);
   if (q) query.set("q", q);
+  if (idempotencyKey) query.set("idempotencyKey", idempotencyKey);
   if (schedule) query.set("schedule", schedule);
   if (from) query.set("from", from);
   if (to) query.set("to", to);
@@ -63,7 +65,7 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
         </div>
         <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
       </div>
@@ -83,6 +85,15 @@ export function JobsPage() {
           className="h-10 w-56 rounded-[10px] border border-line bg-bg px-3 text-[13px]"
           onKeyDown={(event) => {
             if (event.key === "Enter") update("q", event.currentTarget.value);
+          }}
+        />
+        <input
+          defaultValue={idempotencyKey}
+          aria-label="Idempotency key"
+          placeholder="Idempotency key"
+          className="h-10 w-56 rounded-[10px] border border-line bg-bg px-3 text-[13px]"
+          onKeyDown={(event) => {
+            if (event.key === "Enter") update("idempotencyKey", event.currentTarget.value.trim());
           }}
         />
         <label className="flex h-10 items-center gap-2 rounded-[10px] border border-line bg-bg px-3 text-[13px] text-muted">
@@ -110,7 +121,7 @@ export function JobsPage() {
         <Button variant="secondary" size="sm" onClick={() => applyCreatedWindow(params, setParams, null)}>All time</Button>
       </div>
       <Card>
-        {jobs.isLoading ? <p className="p-4 text-[13px] text-muted">Loading jobs…</p> : <JobTable jobs={jobs.data?.data ?? []} />}
+        {jobs.isLoading ? <p className="p-4 text-[13px] text-muted">Loading jobs…</p> : jobs.isError ? <p className="p-4 text-[13px] text-danger">{jobs.error instanceof ApiError ? jobs.error.message : "Could not load jobs"}</p> : <JobTable jobs={jobs.data?.data ?? []} />}
       </Card>
       <div className="flex items-center justify-between text-[13px] text-muted">
         <span>{jobs.data?.meta.total ?? 0} jobs</span>
