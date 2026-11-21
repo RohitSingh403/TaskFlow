@@ -127,6 +127,10 @@ export const updateJobPrioritySchema = z.object({
   priority: z.enum(PRIORITY_LABELS),
 });
 
+export const moveJobSchema = z.object({
+  queue: z.string().trim().regex(QUEUE_NAME_PATTERN),
+});
+
 export const listJobsQuerySchema = z
   .object({
     status: z.enum(["waiting", "delayed", "active", "completed", "failed", "cancelled"]).optional(),
