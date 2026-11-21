@@ -283,6 +283,6 @@ export function toApiKey(key: {
     expiresAt: key.expiresAt?.toISOString() ?? null,
     revokedAt: key.revokedAt?.toISOString() ?? null,
     createdAt: key.createdAt?.toISOString(),
-    status: key.revokedAt ? "revoked" : "active",
+    status: key.revokedAt ? "revoked" : key.expiresAt && key.expiresAt.getTime() <= Date.now() ? "expired" : "active",
   };
 }

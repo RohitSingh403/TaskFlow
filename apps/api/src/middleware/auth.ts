@@ -53,7 +53,7 @@ async function authenticateApiKey(secret: string) {
   const key = await ApiKey.findOne({ keyHash: sha256(secret) }).select("+keyHash");
   if (!key || key.revokedAt) throw new AppError(401, "UNAUTHORIZED", "API key is invalid or revoked");
   if (key.expiresAt && key.expiresAt.getTime() <= Date.now()) {
-    throw new AppError(401, "UNAUTHORIZED", "API key is invalid or revoked");
+    throw new AppError(401, "API_KEY_EXPIRED", "API key has expired");
   }
   const project = await Project.findOne({ _id: key.projectId, deletedAt: null });
   if (!project) throw new AppError(401, "UNAUTHORIZED", "API key is invalid or revoked");

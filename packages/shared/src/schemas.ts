@@ -106,6 +106,7 @@ export const createApiKeySchema = z.object({
   name: z.string().trim().min(2).max(60),
   description: z.string().trim().max(280).optional(),
   scopes: z.array(z.enum(API_SCOPES)).min(1).default([...API_SCOPES]),
+  expiresInDays: z.number().int().min(1).max(365).optional(),
 });
 
 export const retryFailedJobsSchema = z.object({

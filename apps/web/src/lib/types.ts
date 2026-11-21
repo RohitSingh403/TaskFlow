@@ -209,9 +209,10 @@ export interface ApiKey {
   prefix: string;
   scopes: string[];
   lastUsedAt: string | null;
+  expiresAt: string | null;
   revokedAt: string | null;
   createdAt?: string;
-  status: "active" | "revoked";
+  status: "active" | "revoked" | "expired";
   secret?: string;
 }
 

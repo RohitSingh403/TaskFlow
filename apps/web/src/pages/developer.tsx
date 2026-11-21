@@ -20,7 +20,7 @@ export function ApiKeysPage() {
     queryFn: () => api<ApiKey[]>(`/projects/${projectId}/api-keys`),
   });
   const create = useMutation({
-    mutationFn: (body: { name: string; description: string; scopes: string[] }) =>
+    mutationFn: (body: { name: string; description: string; scopes: string[]; expiresInDays?: number }) =>
       api<ApiKey>(`/projects/${projectId}/api-keys`, { method: "POST", body: JSON.stringify(body) }),
     onSuccess: (result) => {
       setSecret(result.data.secret ?? "");
@@ -42,7 +42,7 @@ export function ApiKeysPage() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">API keys</h1>
-          <p className="text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once.</p>
+          <p className="text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. A key can expire after 1 to 365 days, or stay valid until it is revoked.</p>
         </div>
         <Button onClick={() => setOpen(true)}>Create key</Button>
       </div>
@@ -59,7 +59,7 @@ export function ApiKeysPage() {
       <Card className="overflow-x-auto">
         <table className="w-full min-w-[680px] text-left text-[13px]">
           <thead className="text-[11px] tracking-wide text-faint uppercase">
-            <tr className="border-b border-line">{["Name", "Prefix", "Scopes", "Last used", "Status", ""].map((heading) => <th key={heading} className="px-4 py-2 font-medium">{heading}</th>)}</tr>
+            <tr className="border-b border-line">{["Name", "Prefix", "Scopes", "Expires", "Last used", "Status", ""].map((heading) => <th key={heading} className="px-4 py-2 font-medium">{heading}</th>)}</tr>
           </thead>
           <tbody>
             {(keys.data?.data ?? []).map((key) => (
@@ -67,9 +67,10 @@ export function ApiKeysPage() {
                 <td className="px-4 py-2">{key.name}</td>
                 <td className="mono px-4 py-2 text-[12px]">{key.prefix}…</td>
                 <td className="px-4 py-2 text-muted">{key.scopes.join(", ")}</td>
+                <td className="px-4 py-2 text-muted">{key.expiresAt ? formatWhen(key.expiresAt) : "Never"}</td>
                 <td className="px-4 py-2 text-muted">{formatWhen(key.lastUsedAt)}</td>
                 <td className="px-4 py-2 capitalize">{key.status}</td>
-                <td className="px-4 py-2 text-right">{key.status === "active" ? <Button size="sm" variant="danger" onClick={() => revoke.mutate(key.id)}>Revoke</Button> : null}</td>
+                <td className="px-4 py-2 text-right">{key.status === "revoked" ? null : <Button size="sm" variant="danger" onClick={() => revoke.mutate(key.id)}>Revoke</Button>}</td>
               </tr>
             ))}
           </tbody>
@@ -81,15 +82,20 @@ export function ApiKeysPage() {
           onSubmit={(event) => {
             event.preventDefault();
             const form = new FormData(event.currentTarget);
+            const days = String(form.get("expiresInDays") ?? "").trim();
             create.mutate({
               name: String(form.get("name") ?? ""),
               description: String(form.get("description") ?? ""),
               scopes: SCOPES.filter((scope) => form.get(scope) === "on"),
+              ...(days ? { expiresInDays: Number(days) } : {}),
             });
           }}
         >
           <Field label="Name"><TextInput name="name" required minLength={2} /></Field>
           <Field label="Description"><TextInput name="description" /></Field>
+          <Field label="Expires in days">
+            <TextInput name="expiresInDays" type="number" min={1} max={365} placeholder="Never" />
+          </Field>
           <fieldset>
             <legend className="mb-2 text-[12px] text-muted">Scopes</legend>
             <div className="grid grid-cols-2 gap-2 text-[13px]">
@@ -115,6 +121,7 @@ export function DocsPage() {
     ["POST", "/auth/login", "Start a session"],
     ["POST", "/auth/refresh", "Rotate the refresh token and return an access token"],
     ["POST", "/projects", "Create a project and its default queues"],
+    ["POST", "/projects/:id/api-keys", "Create a key, optionally expiring in 1–365 days"],
     ["POST", "/projects/:id/jobs", "Submit a job. Returns before execution."],
     ["GET", "/projects/:id/jobs/:jobId", "Read status, result, and error"],
     ["POST", "/projects/:id/jobs/:jobId/retry", "Retry a failed job"],
