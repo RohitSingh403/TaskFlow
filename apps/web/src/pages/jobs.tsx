@@ -156,12 +156,19 @@ export function JobDetailPage() {
     queryFn: () => api<Queue[]>(`/projects/${projectId}/queues`),
   });
   const action = useMutation({
-    mutationFn: async (kind: "retry" | "cancel" | "remove") => {
+    mutationFn: async (kind: "retry" | "cancel" | "remove" | "dismiss" | "restore") => {
       const path = kind === "remove" ? `/projects/${projectId}/jobs/${jobId}` : `/projects/${projectId}/jobs/${jobId}/${kind}`;
       return api<Job>(path, { method: kind === "remove" ? "DELETE" : "POST" });
     },
     onSuccess: (result, kind) => {
-      toast("success", kind === "retry" ? "Job queued for another attempt" : `Job ${result.data.status}`);
+      const message = kind === "retry"
+        ? "Job queued for another attempt"
+        : kind === "dismiss"
+          ? "Job left the dead letter list"
+          : kind === "restore"
+            ? "Job restored to the dead letter list"
+            : `Job ${result.data.status}`;
+      toast("success", message);
       void client.invalidateQueries({ queryKey: ["job", projectId, jobId] });
       void client.invalidateQueries({ queryKey: ["attempts", projectId, jobId] });
       void client.invalidateQueries({ queryKey: ["jobs", projectId] });
@@ -239,6 +246,7 @@ export function JobDetailPage() {
             <JobStatusPill status={data.status} />
           </div>
           <p className="mono mt-1 text-[12px] text-muted">{data.id} · {data.queue} · {data.traceId}</p>
+          {data.dismissedAt ? <p className="mt-1 text-[12px] text-muted">Off the dead letter list since {formatWhen(data.dismissedAt)}.</p> : null}
           {typeof data.metadata.replayedFrom === "string" ? (
             <p className="mt-1 text-[12px] text-muted">
               Replayed from <Link className="mono hover:underline" to={`/jobs/${data.metadata.replayedFrom}`}>{data.metadata.replayedFrom}</Link>
@@ -249,6 +257,12 @@ export function JobDetailPage() {
           <Button variant="secondary" disabled={replay.isPending || action.isPending} onClick={() => replay.mutate()}>Run again</Button>
           <Button variant="secondary" disabled={data.status !== "delayed" || promote.isPending || action.isPending} onClick={() => promote.mutate()}>Run now</Button>
           <Button variant="secondary" disabled={data.status !== "failed" || action.isPending} onClick={() => action.mutate("retry")}>Retry</Button>
+          {data.status === "failed" && !data.dismissedAt ? (
+            <Button variant="secondary" disabled={action.isPending} onClick={() => action.mutate("dismiss")}>Dismiss</Button>
+          ) : null}
+          {data.status === "failed" && data.dismissedAt ? (
+            <Button variant="secondary" disabled={action.isPending} onClick={() => action.mutate("restore")}>Restore</Button>
+          ) : null}
           <Button variant="secondary" disabled={!["waiting", "delayed"].includes(data.status) || action.isPending} onClick={() => action.mutate("cancel")}>Cancel</Button>
           <Button variant="danger" disabled={data.status === "active" || action.isPending} onClick={() => action.mutate("remove")}>Remove</Button>
         </div>

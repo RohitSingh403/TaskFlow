@@ -72,6 +72,7 @@ export interface Job {
   createdAt?: string;
   startedAt: string | null;
   completedAt: string | null;
+  dismissedAt: string | null;
   durationMs: number | null;
   duplicate?: boolean;
 }

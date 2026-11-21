@@ -229,6 +229,7 @@ export interface JobListQuery {
   jobId?: string;
   idempotencyKey?: string;
   schedule?: string;
+  dismissed?: "true" | "false";
   q?: string;
   from?: string;
   to?: string;
@@ -245,6 +246,8 @@ export async function listJobs(project: ProjectDoc, query: JobListQuery) {
   if (query.jobId) filter.publicId = query.jobId;
   if (query.idempotencyKey) filter.idempotencyKey = query.idempotencyKey;
   if (query.schedule) filter.scheduleId = query.schedule;
+  if (query.dismissed === "true") filter.dismissedAt = { $ne: null };
+  if (query.dismissed === "false") filter.dismissedAt = null;
   if (query.from || query.to) {
     filter.createdAt = {
       ...(query.from ? { $gte: new Date(query.from) } : {}),
@@ -300,6 +303,7 @@ export async function retryJob(project: ProjectDoc, jobId: string, auth: AuthCon
   job.set("error", undefined);
   job.set("result", undefined);
   job.completedAt = undefined;
+  job.set("dismissedAt", undefined);
   job.enqueued = true;
   await job.save();
   await syncWorkflowRun(job.workflowRunId);
@@ -537,6 +541,7 @@ export async function retryFailedJobs(
   const failed = await JobRecord.find({
     projectId: project._id,
     status: "failed",
+    dismissedAt: null,
     ...(input.queue ? { queueName: input.queue } : {}),
   }).sort({ updatedAt: 1 }).limit(limit);
   const jobIds: string[] = [];
@@ -554,6 +559,43 @@ export async function retryFailedJobs(
     }
   }
   return { retried: jobIds.length, skipped, jobIds };
+}
+
+export async function dismissJob(project: ProjectDoc, jobId: string, auth: AuthContext) {
+  const job = await getJob(project, jobId);
+  if (job.status !== "failed") throw new AppError(409, "JOB_NOT_DISMISSIBLE", "Only a failed job can leave the dead letter list");
+  if (job.dismissedAt) throw new AppError(409, "JOB_NOT_DISMISSIBLE", "This job is already off the dead letter list");
+  job.dismissedAt = new Date();
+  await job.save();
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "job.dismissed",
+    targetType: "job",
+    targetId: job.publicId,
+    metadata: {},
+  });
+  return job;
+}
+
+export async function restoreJob(project: ProjectDoc, jobId: string, auth: AuthContext) {
+  const job = await getJob(project, jobId);
+  if (job.status !== "failed" || !job.dismissedAt) {
+    throw new AppError(409, "JOB_NOT_DISMISSIBLE", "This job is still on the dead letter list");
+  }
+  job.set("dismissedAt", undefined);
+  await job.save();
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "job.restored",
+    targetType: "job",
+    targetId: job.publicId,
+    metadata: {},
+  });
+  return job;
 }
 
 export async function cancelQueuedJobs(

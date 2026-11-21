@@ -33,6 +33,7 @@ export interface Job {
   error: { message: string; stack: string | null; code: string | null } | null;
   createdAt?: string;
   completedAt: string | null;
+  dismissedAt: string | null;
   durationMs: number | null;
   duplicate?: boolean;
 }
@@ -68,6 +69,7 @@ export interface ListJobsQuery {
   name?: string;
   jobId?: string;
   idempotencyKey?: string;
+  dismissed?: boolean;
   q?: string;
   from?: string;
   to?: string;

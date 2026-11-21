@@ -141,6 +141,7 @@ export const listJobsQuerySchema = z
     idempotencyKey: z.string().trim().min(8).max(200).optional(),
     schedule: z.string().trim().max(80).optional(),
     q: z.string().trim().max(120).optional(),
+    dismissed: z.enum(["true", "false"]).optional(),
     from: z.string().datetime().optional(),
     to: z.string().datetime().optional(),
     page: z.coerce.number().int().min(1).default(1),

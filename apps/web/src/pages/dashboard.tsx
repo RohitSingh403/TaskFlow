@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { api } from "@/lib/api";
@@ -186,7 +186,7 @@ export function DashboardPage() {
   );
 }
 
-export function JobTable({ jobs }: { jobs: Job[] }) {
+export function JobTable({ jobs, action }: { jobs: Job[]; action?: (job: Job) => ReactNode }) {
   if (jobs.length === 0) return <p className="px-4 py-6 text-[13px] text-muted">No jobs match this view.</p>;
   return (
     <div className="overflow-x-auto">
@@ -196,6 +196,7 @@ export function JobTable({ jobs }: { jobs: Job[] }) {
             {["Job", "Name", "Queue", "Status", "Attempts", "Duration", "Created"].map((heading) => (
               <th key={heading} className="px-4 py-2 font-medium">{heading}</th>
             ))}
+            {action ? <th className="px-4 py-2 font-medium" /> : null}
           </tr>
         </thead>
         <tbody>
@@ -208,6 +209,7 @@ export function JobTable({ jobs }: { jobs: Job[] }) {
               <td className="px-4 py-2 text-muted">{job.attemptsMade}/{job.maxAttempts}</td>
               <td className="px-4 py-2 text-muted">{formatDuration(job.durationMs)}</td>
               <td className="px-4 py-2 text-muted">{formatWhen(job.createdAt)}</td>
+              {action ? <td className="px-4 py-2 text-right">{action(job)}</td> : null}
             </tr>
           ))}
         </tbody>
