@@ -55,6 +55,8 @@ A job that has used its attempts stays `failed` on the same queue. `POST /projec
 
 `POST /projects/:projectId/jobs/cancel-queued` with the same shape cancels the oldest waiting and delayed jobs, up to 50. Active jobs are skipped. A job that belongs to a workflow run is left alone, because cancelling one step from this list would leave the run without that step. Repeat the call when more than 50 jobs are queued.
 
+`POST /projects/:projectId/jobs/:jobId/replay` queues a new job with the same handler, payload, queue, priority, attempts, backoff, and timeout. The copy waits immediately, even when the original was delayed. It does not keep the idempotency key, schedule, or workflow run. The original job is unchanged. The copy counts toward the monthly allowance, and the queue waiting ceiling still applies. A second call creates another job.
+
 `_simulate` is allowed only when the project environment is `development`:
 
 ```json

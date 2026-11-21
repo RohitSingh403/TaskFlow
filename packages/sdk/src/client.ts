@@ -158,6 +158,7 @@ export class TaskFlow {
     list: async (query: ListJobsQuery = {}) => this.request<Job[]>("GET", await this.projectPath("/jobs"), { query }),
     attempts: async (jobId: string) => this.request<JobAttempt[]>("GET", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/attempts`)),
     retry: async (jobId: string) => this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/retry`)),
+    replay: async (jobId: string) => this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/replay`)),
     retryFailed: async (input: { queue?: string; limit?: number } = {}) =>
       this.request<{ retried: number; skipped: number; jobIds: string[] }>("POST", await this.projectPath("/jobs/retry-failed"), { body: input }),
     cancelQueued: async (input: { queue?: string; limit?: number } = {}) =>

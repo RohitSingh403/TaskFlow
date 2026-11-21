@@ -318,6 +318,38 @@ export async function retryJob(project: ProjectDoc, jobId: string, auth: AuthCon
   return job;
 }
 
+export async function replayJob(project: ProjectDoc, jobId: string, auth: AuthContext) {
+  const source = await getJob(project, jobId);
+  const payload = JSON.parse(JSON.stringify(source.payload)) as Record<string, unknown>;
+  const stored = JSON.parse(JSON.stringify(source.metadata ?? {})) as Record<string, string | number | boolean | null>;
+  const result = await submitJob(
+    project,
+    {
+      queue: source.queueName,
+      name: source.name,
+      payload,
+      priority: source.priority,
+      maxAttempts: source.maxAttempts,
+      backoffType: source.backoffType,
+      backoffDelayMs: source.backoffDelayMs,
+      timeoutMs: source.timeoutMs,
+      delayMs: 0,
+      metadata: { ...stored, replayedFrom: source.publicId },
+    },
+    auth,
+  );
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "job.replayed",
+    targetType: "job",
+    targetId: result.job.publicId,
+    metadata: { sourceJobId: source.publicId },
+  });
+  return result.job;
+}
+
 export async function retryFailedJobs(
   project: ProjectDoc,
   input: { queue?: string; limit?: number },
