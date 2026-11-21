@@ -264,6 +264,10 @@ export const updateAlertRuleSchema = z
   })
   .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
 
+export const silenceAlertSchema = z.object({
+  durationMs: z.number().int().min(5 * 60 * 1000).max(7 * 24 * 60 * 60 * 1000),
+});
+
 export const listAlertsQuerySchema = z.object({
   status: z.enum(ALERT_STATUSES).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),

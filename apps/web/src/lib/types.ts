@@ -135,6 +135,7 @@ export interface AlertRule {
   windowMs: number | null;
   minSamples: number | null;
   cooldownMs: number;
+  silencedUntil: string | null;
   lastTriggeredAt: string | null;
   lastError: string | null;
   createdAt?: string;

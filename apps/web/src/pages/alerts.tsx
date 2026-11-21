@@ -63,7 +63,7 @@ export function AlertsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Alerts</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert.
+            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Silence skips a rule until the time you choose. The rule stays enabled.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New rule</Button>
@@ -93,6 +93,7 @@ export function AlertsPage() {
                   <td className="px-4 py-3 text-muted">{describe(rule)}</td>
                   <td className="px-4 py-3">{formatWhen(rule.lastTriggeredAt)}</td>
                   <td className="px-4 py-3 text-right">
+                    <RuleSilence rule={rule} />
                     <Button variant="ghost" size="sm" onClick={() => toggle.mutate(rule)}>{rule.enabled ? "Pause" : "Enable"}</Button>
                     <Button variant="ghost" size="sm" onClick={() => remove.mutate(rule.id)}>Delete</Button>
                   </td>
@@ -131,6 +132,57 @@ export function AlertsPage() {
       </Card>
       {open ? <CreateRule onClose={() => setOpen(false)} /> : null}
     </div>
+  );
+}
+
+const silenceChoices = [
+  { label: "1 hour", durationMs: 60 * 60 * 1000 },
+  { label: "8 hours", durationMs: 8 * 60 * 60 * 1000 },
+  { label: "1 day", durationMs: 24 * 60 * 60 * 1000 },
+  { label: "7 days", durationMs: 7 * 24 * 60 * 60 * 1000 },
+];
+
+function RuleSilence({ rule }: { rule: AlertRule }) {
+  const projectId = useSession((state) => state.projectId);
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [durationMs, setDurationMs] = useState(silenceChoices[0]?.durationMs ?? 60 * 60 * 1000);
+  const silenced = Boolean(rule.silencedUntil && new Date(rule.silencedUntil).getTime() > Date.now());
+  const refresh = () => void client.invalidateQueries({ queryKey: ["alert-rules", projectId] });
+  const silence = useMutation({
+    mutationFn: () => api<AlertRule>(`/projects/${projectId}/alerts/rules/${rule.id}/silence`, {
+      method: "POST",
+      body: JSON.stringify({ durationMs }),
+    }),
+    onSuccess: (result) => {
+      toast("success", `Silenced until ${formatWhen(result.data.silencedUntil)}`);
+      refresh();
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not silence the rule"),
+  });
+  const clear = useMutation({
+    mutationFn: () => api<AlertRule>(`/projects/${projectId}/alerts/rules/${rule.id}/unsilence`, { method: "POST" }),
+    onSuccess: () => {
+      toast("success", "Silence cleared");
+      refresh();
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not clear the silence"),
+  });
+  if (silenced) {
+    return (
+      <span className="mr-2 inline-flex items-center gap-2">
+        <span className="text-[12px] text-muted">Silenced until {formatWhen(rule.silencedUntil)}</span>
+        <Button variant="ghost" size="sm" loading={clear.isPending} onClick={() => clear.mutate()}>Clear silence</Button>
+      </span>
+    );
+  }
+  return (
+    <span className="mr-2 inline-flex items-center gap-2">
+      <SelectInput className="h-8 w-28" aria-label={`Silence ${rule.name}`} value={String(durationMs)} onChange={(event) => setDurationMs(Number(event.target.value))}>
+        {silenceChoices.map((choice) => <option key={choice.durationMs} value={choice.durationMs}>{choice.label}</option>)}
+      </SelectInput>
+      <Button variant="ghost" size="sm" loading={silence.isPending} onClick={() => silence.mutate()}>Silence</Button>
+    </span>
   );
 }
 

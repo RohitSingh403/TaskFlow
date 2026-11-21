@@ -220,6 +220,10 @@ export class TaskFlow {
       create: async (input: Record<string, unknown>) => this.request<AlertRule>("POST", await this.projectPath("/alerts/rules"), { body: input }),
       update: async (ruleId: string, input: Record<string, unknown>) =>
         this.request<AlertRule>("PATCH", await this.projectPath(`/alerts/rules/${encodeURIComponent(ruleId)}`), { body: input }),
+      silence: async (ruleId: string, input: { durationMs: number }) =>
+        this.request<AlertRule>("POST", await this.projectPath(`/alerts/rules/${encodeURIComponent(ruleId)}/silence`), { body: input }),
+      unsilence: async (ruleId: string) =>
+        this.request<AlertRule>("POST", await this.projectPath(`/alerts/rules/${encodeURIComponent(ruleId)}/unsilence`)),
       delete: async (ruleId: string) => this.request<{ deleted: boolean }>("DELETE", await this.projectPath(`/alerts/rules/${encodeURIComponent(ruleId)}`)),
     },
   };
@@ -331,6 +335,7 @@ interface AlertRule {
   name: string;
   type: string;
   enabled: boolean;
+  silencedUntil: string | null;
 }
 
 interface WebhookEndpoint {

@@ -23,7 +23,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - A bulk cancel for waiting and delayed jobs. Active jobs stay. Workflow steps are left for the run that owns them.
 - Recurring schedules. A separate scheduler process creates one normal job per cron tick. Editing a schedule keeps its id. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time unchanged.
 - Workflows. A run is a tree of normal jobs. Children finish before the parent that waits on them.
-- Alert rules for queue backlog, failure rate, offline workers, and long-running jobs. The scheduler opens an in-app alert and then waits out a cooldown.
+- Alert rules for queue backlog, failure rate, offline workers, and long-running jobs. The scheduler opens an in-app alert and then waits out a cooldown. Silence skips a rule until a chosen time. The rule stays enabled.
 - Signed outbound webhooks for job completion, failure, cancellation, and fired alerts. Delivery is at least once from the worker. Send again queues that same delivery id.
 - A separate worker process, heartbeats, and health derived from those heartbeats.
 - Attempt history, structured logs, and dashboard metrics.
@@ -163,6 +163,7 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | POST | `/projects/:id/workflows` | Create a workflow |
 | POST | `/projects/:id/workflows/:workflowId/runs` | Start a workflow run |
 | POST | `/projects/:id/alerts/rules` | Create an alert rule |
+| POST | `/projects/:id/alerts/rules/:ruleId/silence` | Skip a rule until a chosen time |
 | GET | `/projects/:id/alerts` | Alert history |
 | POST | `/projects/:id/webhooks` | Register a signed webhook |
 | POST | `/projects/:id/webhooks/:webhookId/rotate` | Replace the signing secret |

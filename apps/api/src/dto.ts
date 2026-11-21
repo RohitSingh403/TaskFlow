@@ -176,6 +176,7 @@ export function toAlertRule(rule: AlertRuleDoc) {
     windowMs: rule.windowMs ?? null,
     minSamples: rule.minSamples ?? null,
     cooldownMs: rule.cooldownMs,
+    silencedUntil: rule.silencedUntil?.toISOString() ?? null,
     lastTriggeredAt: rule.lastTriggeredAt?.toISOString() ?? null,
     lastError: rule.lastError || null,
     createdAt: rule.createdAt?.toISOString(),
