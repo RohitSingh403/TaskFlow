@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import type { ApiKey, Project } from "@/lib/types";
@@ -13,6 +13,7 @@ export function ApiKeysPage() {
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<ApiKey | null>(null);
   const [secret, setSecret] = useState("");
   const keys = useQuery({
     queryKey: ["api-keys", projectId],
@@ -42,7 +43,7 @@ export function ApiKeysPage() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">API keys</h1>
-          <p className="text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. A key can expire after 1 to 365 days, or stay valid until it is revoked.</p>
+          <p className="text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. Rename changes the label and keeps that secret. A key can expire after 1 to 365 days, or stay valid until it is revoked.</p>
         </div>
         <Button onClick={() => setOpen(true)}>Create key</Button>
       </div>
@@ -64,18 +65,29 @@ export function ApiKeysPage() {
           <tbody>
             {(keys.data?.data ?? []).map((key) => (
               <tr key={key.id} className="border-b border-line/70">
-                <td className="px-4 py-2">{key.name}</td>
+                <td className="px-4 py-2">
+                  <div>{key.name}</div>
+                  {key.description ? <div className="text-[12px] text-muted">{key.description}</div> : null}
+                </td>
                 <td className="mono px-4 py-2 text-[12px]">{key.prefix}…</td>
                 <td className="px-4 py-2 text-muted">{key.scopes.join(", ")}</td>
                 <td className="px-4 py-2 text-muted">{key.expiresAt ? formatWhen(key.expiresAt) : "Never"}</td>
                 <td className="px-4 py-2 text-muted">{formatWhen(key.lastUsedAt)}</td>
                 <td className="px-4 py-2 capitalize">{key.status}</td>
-                <td className="px-4 py-2 text-right">{key.status === "revoked" ? null : <Button size="sm" variant="danger" onClick={() => revoke.mutate(key.id)}>Revoke</Button>}</td>
+                <td className="px-4 py-2 text-right">
+                  {key.status === "revoked" ? null : (
+                    <>
+                      <Button size="sm" variant="ghost" onClick={() => setEditing(key)}>Edit</Button>
+                      <Button size="sm" variant="danger" onClick={() => revoke.mutate(key.id)}>Revoke</Button>
+                    </>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </Card>
+      <EditApiKey apiKey={editing} projectId={projectId} onClose={() => setEditing(null)} />
       <Dialog open={open} title="Create API key" onClose={() => setOpen(false)}>
         <form
           className="space-y-3"
@@ -111,6 +123,50 @@ export function ApiKeysPage() {
         </form>
       </Dialog>
     </div>
+  );
+}
+
+function EditApiKey({ apiKey, projectId, onClose }: { apiKey: ApiKey | null; projectId: string; onClose: () => void }) {
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!apiKey) return;
+    setName(apiKey.name);
+    setDescription(apiKey.description);
+    setError("");
+  }, [apiKey]);
+  const save = useMutation({
+    mutationFn: () => api<ApiKey>(`/projects/${projectId}/api-keys/${apiKey?.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name, description }),
+    }),
+    onSuccess: () => {
+      toast("success", "API key renamed");
+      setError("");
+      onClose();
+      void client.invalidateQueries({ queryKey: ["api-keys", projectId] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : "Could not rename the key"),
+  });
+  return (
+    <Dialog open={Boolean(apiKey)} title="Rename API key" description="The secret, prefix, and scopes stay. Callers keep using the same key." onClose={onClose}>
+      <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); save.mutate(); }}>
+        <Field label="Name">
+          <TextInput value={name} onChange={(event) => setName(event.target.value)} aria-label="API key name" required minLength={2} />
+        </Field>
+        <Field label="Description">
+          <TextInput value={description} onChange={(event) => setDescription(event.target.value)} aria-label="API key description" placeholder="Optional" />
+        </Field>
+        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={save.isPending}>Save</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
@@ -154,6 +210,7 @@ export function DocsPage() {
     ["GET", "/projects/:id/billing", "Read this month's job allowance"],
     ["PATCH", "/projects/:id", "Change project settings, including job retention"],
     ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],
+    ["PATCH", "/projects/:id/api-keys/:keyId", "Rename an API key and keep its secret"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
   ];
   return (

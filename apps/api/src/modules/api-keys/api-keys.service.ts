@@ -35,6 +35,31 @@ export async function createApiKey(
   return { key, secret: secret.secret };
 }
 
+export async function updateApiKey(
+  project: ProjectDoc,
+  keyId: string,
+  input: { name?: string; description?: string },
+  actorId: string,
+) {
+  const key = await ApiKey.findOne({ projectId: project._id, publicId: keyId });
+  if (!key) throw new AppError(404, "API_KEY_NOT_FOUND", "API key not found");
+  if (key.revokedAt) throw new AppError(409, "API_KEY_REVOKED", "A revoked key cannot be renamed");
+  const previousName = key.name;
+  if (input.name) key.name = input.name.trim();
+  if (typeof input.description === "string") key.description = input.description.trim();
+  await key.save();
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: "user",
+    actorId,
+    action: "api_key.updated",
+    targetType: "api_key",
+    targetId: key.publicId,
+    metadata: { name: key.name, previousName },
+  });
+  return key;
+}
+
 export async function revokeApiKey(project: ProjectDoc, keyId: string, actorId: string) {
   const key = await ApiKey.findOne({ projectId: project._id, publicId: keyId });
   if (!key) throw new AppError(404, "API_KEY_NOT_FOUND", "API key not found");
