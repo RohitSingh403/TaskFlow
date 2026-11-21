@@ -140,7 +140,7 @@ The scheduler leader evaluates enabled rules. A true rule opens one alert, then 
 { "url": "https://example.com/taskflow", "description": "Ops", "events": ["job.completed", "job.failed"] }
 ```
 
-The create and rotate responses include `secret` once. Later reads return `secretPrefix` only. The secret is `whsec_` plus random data, and it is stored so deliveries can be signed. Production projects accept `https` URLs that do not resolve to a private, loopback, or link-local address. A development project may also use `http://127.0.0.1` or `http://localhost`.
+The create and rotate responses include `secret` once. Later reads return `secretPrefix` only. `POST /projects/:projectId/webhooks/:webhookId/rotate` replaces the stored secret. Deliveries that have not been sent are signed with the new value. The previous secret stops working. The secret is `whsec_` plus random data, and it is stored so deliveries can be signed. Production projects accept `https` URLs that do not resolve to a private, loopback, or link-local address. A development project may also use `http://127.0.0.1` or `http://localhost`.
 
 TaskFlow POSTs the same JSON body on every attempt. Headers are `TaskFlow-Delivery`, `TaskFlow-Event`, `TaskFlow-Timestamp`, and `TaskFlow-Signature` (`t=<unix>,v1=<hex>`). The signature is HMAC-SHA256 of `<timestamp>.<raw body>` using the current secret. A receiver should treat the delivery id as its dedupe key. Redirects are not followed. A non-2xx response is retried up to five times. A project can keep 10 endpoints.
 

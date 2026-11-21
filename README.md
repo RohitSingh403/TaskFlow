@@ -24,7 +24,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Recurring schedules. A separate scheduler process creates one normal job per cron tick. Editing a schedule keeps its id. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time unchanged.
 - Workflows. A run is a tree of normal jobs. Children finish before the parent that waits on them.
 - Alert rules for queue backlog, failure rate, offline workers, and long-running jobs. The scheduler opens an in-app alert and then waits out a cooldown. Silence skips a rule until a chosen time. The rule stays enabled.
-- Signed outbound webhooks for job completion, failure, cancellation, and fired alerts. Delivery is at least once from the worker. Send test queues a `webhook.test` delivery without waiting for a job. Send again queues that same delivery id.
+- Signed outbound webhooks for job completion, failure, cancellation, and fired alerts. Delivery is at least once from the worker. Send test queues a `webhook.test` delivery without waiting for a job. Rotate replaces the signing secret, and deliveries that have not been sent use the new one. Send again queues that same delivery id.
 - A separate worker process, heartbeats, and health derived from those heartbeats.
 - Attempt history, structured logs, and dashboard metrics.
 - Socket.IO updates scoped to a project room. The client refetches after reconnect.
