@@ -350,6 +350,39 @@ export async function replayJob(project: ProjectDoc, jobId: string, auth: AuthCo
   return result.job;
 }
 
+export async function promoteJob(project: ProjectDoc, jobId: string, auth: AuthContext) {
+  const job = await getJob(project, jobId);
+  if (job.status !== "delayed") throw new AppError(409, "JOB_NOT_DELAYED", "Only a delayed job can run now");
+  const previousDelayMs = job.delayMs;
+  const bullJob = await getBullQueue(job.bullQueueName).getJob(job.publicId);
+  if (bullJob) {
+    const state = await bullJob.getState();
+    if (state === "delayed") await bullJob.promote();
+    else if (!["waiting", "prioritized", "paused"].includes(state)) {
+      throw new AppError(409, "JOB_NOT_DELAYED", "Only a delayed job can run now");
+    }
+  }
+  job.delayMs = 0;
+  job.status = "waiting";
+  if (bullJob) await job.save();
+  else await placeOnQueue(job);
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "job.promoted",
+    targetType: "job",
+    targetId: job.publicId,
+    metadata: { delayMs: previousDelayMs },
+  });
+  await publish({
+    type: "job.updated",
+    projectId: project.publicId,
+    data: { jobId: job.publicId, status: job.status, queue: job.queueName },
+  });
+  return job;
+}
+
 export async function retryFailedJobs(
   project: ProjectDoc,
   input: { queue?: string; limit?: number },
