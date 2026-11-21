@@ -81,6 +81,7 @@ export async function updateWebhook(
 ) {
   const webhook = await Webhook.findOne({ projectId: project._id, publicId: webhookId, deletedAt: null }) as WebhookDoc | null;
   if (!webhook) throw new AppError(404, "WEBHOOK_NOT_FOUND", "Webhook not found");
+  const previousUrl = webhook.url;
   if (input.url) webhook.url = await checkedUrl(project, input.url);
   if (typeof input.description === "string") webhook.description = input.description.trim();
   if (input.events) webhook.events = input.events;
@@ -93,7 +94,10 @@ export async function updateWebhook(
     action: "webhook.updated",
     targetType: "webhook",
     targetId: webhook.publicId,
-    metadata: {},
+    metadata: {
+      ...(webhook.url !== previousUrl ? { url: webhook.url, previousUrl } : {}),
+      ...(input.events ? { events: [...webhook.events] } : {}),
+    },
   });
   return webhook;
 }
