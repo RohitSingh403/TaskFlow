@@ -19,6 +19,7 @@ export function WebhooksPage() {
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
   const [secret, setSecret] = useState("");
+  const [rotateId, setRotateId] = useState<string | null>(null);
   const listed = useQuery({
     queryKey: ["webhooks", projectId],
     enabled: Boolean(projectId),
@@ -49,6 +50,16 @@ export function WebhooksPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not send the test"),
   });
+  const rotate = useMutation({
+    mutationFn: (hookId: string) => api<WebhookEndpoint & { secret: string }>(`/projects/${projectId}/webhooks/${hookId}/rotate`, { method: "POST" }),
+    onSuccess: (result) => {
+      setRotateId(null);
+      setSecret(result.data.secret);
+      toast("success", "Signing secret replaced");
+      void client.invalidateQueries({ queryKey: ["webhooks", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not rotate the secret"),
+  });
   const remove = useMutation({
     mutationFn: (hookId: string) => api(`/projects/${projectId}/webhooks/${hookId}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -67,7 +78,7 @@ export function WebhooksPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Webhooks</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Send test queues a webhook.test delivery on this endpoint without waiting for a job. Send again queues that same delivery id. Receivers should ignore a delivery id they have already handled.
+            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Send test queues a webhook.test delivery on this endpoint without waiting for a job. Rotate replaces the signing secret. Deliveries that have not been sent use the new one. Send again queues that same delivery id. Receivers should ignore a delivery id they have already handled.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New webhook</Button>
@@ -100,6 +111,7 @@ export function WebhooksPage() {
                   <td className="px-4 py-3">{hook.enabled ? "Enabled" : "Paused"}</td>
                   <td className="px-4 py-3 text-right">
                     {hook.enabled ? <button type="button" className="mr-3 text-muted hover:text-ink" onClick={() => test.mutate(hook.id)}>Send test</button> : null}
+                    <button type="button" className="mr-3 text-muted hover:text-ink" onClick={() => setRotateId(hook.id)}>Rotate</button>
                     <button type="button" className="mr-3 text-muted hover:text-ink" onClick={() => toggle.mutate(hook)}>{hook.enabled ? "Pause" : "Enable"}</button>
                     <button type="button" className="text-danger" onClick={() => remove.mutate(hook.id)}>Delete</button>
                   </td>
@@ -154,7 +166,13 @@ export function WebhooksPage() {
           void client.invalidateQueries({ queryKey: ["webhooks", projectId] });
         }}
       />
-      <Dialog open={Boolean(secret)} title="Signing secret" description="Copy this now. Later responses only show the prefix. Rotate the secret if it is lost." onClose={() => setSecret("")}>
+      <Dialog open={Boolean(rotateId)} title="Rotate signing secret" description="Deliveries that have not been sent use the new secret. The previous secret stops working." onClose={() => setRotateId(null)}>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setRotateId(null)}>Keep</Button>
+          <Button loading={rotate.isPending} onClick={() => rotateId && rotate.mutate(rotateId)}>Replace secret</Button>
+        </div>
+      </Dialog>
+      <Dialog open={Boolean(secret)} title="Signing secret" description="Copy this now. Later responses only show the prefix." onClose={() => setSecret("")}>
         <p className="mono break-all rounded-[10px] border border-line bg-bg px-3 py-2 text-[12px]">{secret}</p>
         <div className="mt-4 flex justify-end"><Button onClick={() => setSecret("")}>Done</Button></div>
       </Dialog>

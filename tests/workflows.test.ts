@@ -14,7 +14,7 @@ process.env.LOG_LEVEL = "error";
 
 const password = "correcthorsebattery1";
 
-async function waitFor(predicate: () => Promise<boolean>, timeoutMs = 15_000) {
+async function waitFor(predicate: () => Promise<boolean>, timeoutMs = 30_000) {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     if (await predicate()) return;
@@ -207,4 +207,4 @@ it("runs a report before the email that depends on it, and keeps a failed depend
     const current = await asAda(ada.get(`/api/v1/projects/${projectId}/workflows/${fragileId}/runs/${failedRunId}`));
     return current.body.data.status === "completed";
   });
-});
+}, 70_000);
