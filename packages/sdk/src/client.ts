@@ -300,8 +300,10 @@ interface QueueResource {
 interface ScheduleResource {
   id: string;
   name: string;
+  queue: string;
   cron: string;
   timeZone: string;
+  paused: boolean;
   status: string;
   nextRunAt: string | null;
 }

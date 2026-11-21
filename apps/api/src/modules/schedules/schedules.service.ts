@@ -154,6 +154,8 @@ export async function updateSchedule(project: ProjectDoc, schedule: ScheduleDoc,
     schedule.payload = parsePayload(project, handlerName, (input.payload ?? schedule.payload) as Record<string, unknown>);
     schedule.handler = handlerName;
   }
+  const previousCron = schedule.cron;
+  const previousTimeZone = schedule.timeZone;
   if (input.name) schedule.name = input.name;
   if (input.description !== undefined) schedule.description = input.description;
   if (input.cron) schedule.cron = input.cron;
@@ -175,7 +177,10 @@ export async function updateSchedule(project: ProjectDoc, schedule: ScheduleDoc,
     action: "schedule.updated",
     targetType: "schedule",
     targetId: schedule.publicId,
-    metadata: {},
+    metadata: {
+      ...(schedule.cron !== previousCron ? { cron: schedule.cron, previousCron } : {}),
+      ...(schedule.timeZone !== previousTimeZone ? { timeZone: schedule.timeZone, previousTimeZone } : {}),
+    },
   });
   return schedule;
 }
