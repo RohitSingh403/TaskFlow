@@ -275,6 +275,7 @@ export interface AuditEntry {
 }
 
 export type WebhookEventName = "job.completed" | "job.failed" | "job.cancelled" | "alert.fired";
+export type WebhookDeliveryEvent = WebhookEventName | "webhook.test";
 
 export interface WebhookEndpoint {
   id: string;
@@ -290,7 +291,7 @@ export interface WebhookEndpoint {
 export interface WebhookDelivery {
   id: string;
   webhookId: string;
-  event: WebhookEventName;
+  event: WebhookDeliveryEvent;
   resourceId: string;
   status: "pending" | "succeeded" | "failed";
   attempts: { at: string; statusCode: number | null; error: string | null; durationMs: number }[];

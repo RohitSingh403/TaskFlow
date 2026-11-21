@@ -13,6 +13,7 @@ import {
   listWebhooks,
   redeliverWebhook,
   rotateWebhookSecret,
+  sendTestWebhook,
   updateWebhook,
 } from "./webhooks.service.js";
 
@@ -60,6 +61,16 @@ webhookRouter.post(
   asyncHandler(async (req, res) => {
     const rotated = await rotateWebhookSecret(req.project!, String(req.params.webhookId), req.auth!);
     sendOk(res, { ...toWebhook(rotated.webhook), secret: rotated.secret });
+  }),
+);
+
+webhookRouter.post(
+  "/:webhookId/test",
+  writeLimiter,
+  requireScope("jobs:write"),
+  asyncHandler(async (req, res) => {
+    const delivery = await sendTestWebhook(req.project!, String(req.params.webhookId), req.auth!);
+    sendCreated(res, toWebhookDelivery(delivery));
   }),
 );
 

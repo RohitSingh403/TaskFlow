@@ -41,6 +41,14 @@ export function WebhooksPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not send the delivery again"),
   });
+  const test = useMutation({
+    mutationFn: (hookId: string) => api<WebhookDelivery>(`/projects/${projectId}/webhooks/${hookId}/test`, { method: "POST" }),
+    onSuccess: () => {
+      toast("success", "Test delivery queued");
+      void client.invalidateQueries({ queryKey: ["webhooks", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not send the test"),
+  });
   const remove = useMutation({
     mutationFn: (hookId: string) => api(`/projects/${projectId}/webhooks/${hookId}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -59,7 +67,7 @@ export function WebhooksPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Webhooks</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Send again queues that same delivery id. Receivers should ignore a delivery id they have already handled.
+            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Send test queues a webhook.test delivery on this endpoint without waiting for a job. Send again queues that same delivery id. Receivers should ignore a delivery id they have already handled.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New webhook</Button>
@@ -91,6 +99,7 @@ export function WebhooksPage() {
                   <td className="mono px-4 py-3 text-[12px]">{hook.secretPrefix}</td>
                   <td className="px-4 py-3">{hook.enabled ? "Enabled" : "Paused"}</td>
                   <td className="px-4 py-3 text-right">
+                    {hook.enabled ? <button type="button" className="mr-3 text-muted hover:text-ink" onClick={() => test.mutate(hook.id)}>Send test</button> : null}
                     <button type="button" className="mr-3 text-muted hover:text-ink" onClick={() => toggle.mutate(hook)}>{hook.enabled ? "Pause" : "Enable"}</button>
                     <button type="button" className="text-danger" onClick={() => remove.mutate(hook.id)}>Delete</button>
                   </td>
@@ -111,6 +120,7 @@ export function WebhooksPage() {
                 <th className="px-4 py-3 font-medium">Resource</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Attempts</th>
+                <th className="px-4 py-3 font-medium">Last response</th>
                 <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
@@ -122,6 +132,7 @@ export function WebhooksPage() {
                   <td className="mono px-4 py-3 text-[12px]">{delivery.resourceId}</td>
                   <td className="px-4 py-3 capitalize">{delivery.status}</td>
                   <td className="px-4 py-3 text-muted">{delivery.attempts.length}</td>
+                  <td className="px-4 py-3 text-muted">{lastResponse(delivery)}</td>
                   <td className="px-4 py-3 text-right">
                     {delivery.status === "pending" ? null : (
                       <Button size="sm" variant="secondary" loading={redeliver.isPending} onClick={() => redeliver.mutate(delivery)}>Send again</Button>
@@ -149,6 +160,13 @@ export function WebhooksPage() {
       </Dialog>
     </div>
   );
+}
+
+function lastResponse(delivery: WebhookDelivery) {
+  const attempt = delivery.attempts.at(-1);
+  if (!attempt) return "—";
+  if (attempt.statusCode) return attempt.error ? `${attempt.statusCode} ${attempt.error}` : String(attempt.statusCode);
+  return attempt.error ?? "—";
 }
 
 function CreateWebhook({

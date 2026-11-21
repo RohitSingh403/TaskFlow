@@ -4,6 +4,7 @@ import { isIP } from "node:net";
 import {
   WEBHOOK_MAX_ATTEMPTS,
   WEBHOOK_QUEUE,
+  WEBHOOK_TEST_EVENT,
   WEBHOOK_TIMEOUT_MS,
   redact,
   type ProjectEnvironment,
@@ -131,6 +132,31 @@ export async function requeueWebhookDelivery(delivery: WebhookDeliveryDoc) {
   if (!fresh) throw new WebhookDeliveryError("DELIVERY_PENDING");
   await placeDelivery(fresh);
   return fresh;
+}
+
+export async function queueWebhookTest(webhook: WebhookDoc) {
+  if (!webhook.enabled || webhook.deletedAt) throw new WebhookDeliveryError("WEBHOOK_DISABLED");
+  const deliveryId = createId("whd");
+  const delivery = await WebhookDelivery.create({
+    publicId: deliveryId,
+    projectId: webhook.projectId,
+    projectPublicId: webhook.projectPublicId,
+    webhookId: webhook._id,
+    webhookPublicId: webhook.publicId,
+    event: WEBHOOK_TEST_EVENT,
+    resourceId: deliveryId,
+    body: {
+      id: deliveryId,
+      event: WEBHOOK_TEST_EVENT,
+      createdAt: new Date().toISOString(),
+      data: { webhookId: webhook.publicId, test: true },
+    },
+    status: "pending",
+    attempts: [],
+    enqueued: false,
+  });
+  await placeDelivery(delivery);
+  return delivery;
 }
 
 async function placeDelivery(delivery: WebhookDeliveryDoc) {

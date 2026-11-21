@@ -144,6 +144,8 @@ The create and rotate responses include `secret` once. Later reads return `secre
 
 TaskFlow POSTs the same JSON body on every attempt. Headers are `TaskFlow-Delivery`, `TaskFlow-Event`, `TaskFlow-Timestamp`, and `TaskFlow-Signature` (`t=<unix>,v1=<hex>`). The signature is HMAC-SHA256 of `<timestamp>.<raw body>` using the current secret. A receiver should treat the delivery id as its dedupe key. Redirects are not followed. A non-2xx response is retried up to five times. A project can keep 10 endpoints.
 
+`POST /projects/:projectId/webhooks/:webhookId/test` queues one `webhook.test` delivery for that endpoint. It does not wait for a job, and the endpoint does not need to subscribe to the test event. The body is `{ "webhookId", "test": true }` inside the normal signed envelope. Each call creates a new delivery id. A disabled endpoint returns `409` `WEBHOOK_DISABLED`.
+
 `POST /projects/:projectId/webhooks/:webhookId/deliveries/:deliveryId/redeliver` queues that same delivery again. The body and delivery id stay the same. Previous attempts stay on the record. A delivery that is still pending returns `409` `DELIVERY_PENDING`. A disabled endpoint returns `409` `WEBHOOK_DISABLED`. The signature uses the current secret.
 
 ## Queues
