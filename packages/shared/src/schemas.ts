@@ -123,6 +123,10 @@ export const rescheduleJobSchema = z.object({
   delayMs: z.number().int().min(0).max(30 * 24 * 60 * 60 * 1000),
 });
 
+export const updateJobPrioritySchema = z.object({
+  priority: z.enum(PRIORITY_LABELS),
+});
+
 export const listJobsQuerySchema = z
   .object({
     status: z.enum(["waiting", "delayed", "active", "completed", "failed", "cancelled"]).optional(),

@@ -63,7 +63,7 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. Run now moves a delayed job onto the queue. Reschedule sets a new delay on a waiting or delayed job. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. Run now moves a delayed job onto the queue. Reschedule sets a new delay, and Update priority changes the queue order, while a job is waiting or delayed. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
         </div>
         <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
       </div>
@@ -184,6 +184,19 @@ export function JobDetailPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not reschedule the job"),
   });
+  const updatePriority = useMutation({
+    mutationFn: (priority: string) => api<Job>(`/projects/${projectId}/jobs/${jobId}/priority`, {
+      method: "POST",
+      body: JSON.stringify({ priority }),
+    }),
+    onSuccess: (result) => {
+      toast("success", "Priority updated");
+      void client.invalidateQueries({ queryKey: ["job", projectId, jobId] });
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+      return result;
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not update the priority"),
+  });
   if (job.isLoading) return <p className="text-[13px] text-muted">Loading job…</p>;
   if (!job.data) return <EmptyState title="Job not found" body="This job is not in the current project." />;
   const data = job.data.data;
@@ -212,26 +225,45 @@ export function JobDetailPage() {
         </div>
       </div>
       {["waiting", "delayed"].includes(data.status) ? (
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            reschedule.mutate();
-          }}
-        >
-          <label className="text-[13px] text-muted">
-            New delay (ms)
-            <TextInput
-              className="mt-1.5 w-40"
-              inputMode="numeric"
-              aria-label="New delay (ms)"
-              value={nextDelay}
-              onChange={(event) => setNextDelay(event.target.value)}
-              placeholder="60000"
-            />
-          </label>
-          <Button type="submit" variant="secondary" disabled={nextDelay.trim() === "" || reschedule.isPending}>Reschedule</Button>
-        </form>
+        <div className="flex flex-wrap items-end gap-6">
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              reschedule.mutate();
+            }}
+          >
+            <label className="text-[13px] text-muted">
+              New delay (ms)
+              <TextInput
+                className="mt-1.5 w-40"
+                inputMode="numeric"
+                aria-label="New delay (ms)"
+                value={nextDelay}
+                onChange={(event) => setNextDelay(event.target.value)}
+                placeholder="60000"
+              />
+            </label>
+            <Button type="submit" variant="secondary" disabled={nextDelay.trim() === "" || reschedule.isPending}>Reschedule</Button>
+          </form>
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              updatePriority.mutate(String(new FormData(event.currentTarget).get("priority") ?? ""));
+            }}
+          >
+            <label className="text-[13px] text-muted">
+              Priority
+              <SelectInput name="priority" aria-label="Queue priority" defaultValue={data.priority} key={data.priority} className="mt-1.5 w-36">
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </SelectInput>
+            </label>
+            <Button type="submit" variant="secondary" disabled={updatePriority.isPending}>Update priority</Button>
+          </form>
+        </div>
       ) : null}
       <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
         {[
