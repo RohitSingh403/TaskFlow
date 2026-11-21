@@ -64,6 +64,7 @@ export interface Job {
   timeoutMs: number;
   traceId: string;
   idempotencyKey: string | null;
+  scheduleId?: string | null;
   result: unknown;
   error: { message: string; stack: string | null; code: string | null } | null;
   createdBy: { type: string; id: string; label: string };

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiError, api } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
-import type { HandlerInfo, Queue, Schedule } from "@/lib/types";
+import type { HandlerInfo, Job, Queue, Schedule } from "@/lib/types";
 import { useSession, useUi } from "@/stores/session";
 import { HealthPill } from "@/components/status";
 import { Button, Card, Dialog, EmptyState, Field, SelectInput, TextArea, TextInput } from "@/components/ui";
@@ -29,6 +29,15 @@ export function SchedulesPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not update the schedule"),
   });
+  const run = useMutation({
+    mutationFn: (schedule: Schedule) => api<Job>(`/projects/${projectId}/schedules/${schedule.id}/run`, { method: "POST" }),
+    onSuccess: (result) => {
+      toast("success", `Queued ${result.data.id}`);
+      void client.invalidateQueries({ queryKey: ["schedules", projectId] });
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not run the schedule"),
+  });
   const remove = useMutation({
     mutationFn: (scheduleId: string) => api(`/projects/${projectId}/schedules/${scheduleId}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -47,7 +56,7 @@ export function SchedulesPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Schedules</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            One scheduler process turns a cron pattern into a normal job. Missed ticks older than a minute are skipped instead of replayed.
+            One scheduler process turns a cron pattern into a normal job. Run now queues one job and leaves the next cron time where it is. Missed ticks older than a minute are skipped.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New schedule</Button>
@@ -85,6 +94,7 @@ export function SchedulesPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <Link to={`/jobs?schedule=${schedule.id}`} className="inline-flex h-8 items-center px-2 text-[13px] text-muted hover:text-ink">Jobs</Link>
+                        <Button size="sm" variant="secondary" loading={run.isPending} onClick={() => run.mutate(schedule)}>Run now</Button>
                         <Button size="sm" variant="secondary" onClick={() => pause.mutate(schedule)}>{schedule.paused ? "Resume" : "Pause"}</Button>
                         <Button size="sm" variant="danger" onClick={() => setRemoveId(schedule.id)}>Delete</Button>
                       </div>

@@ -184,6 +184,7 @@ export class TaskFlow {
     create: async (input: Record<string, unknown>) => this.request<ScheduleResource>("POST", await this.projectPath("/schedules"), { body: input }),
     update: async (scheduleId: string, input: Record<string, unknown>) =>
       this.request<ScheduleResource>("PATCH", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}`), { body: input }),
+    run: async (scheduleId: string) => this.request<Job>("POST", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}/run`)),
     pause: async (scheduleId: string) => this.request<ScheduleResource>("POST", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}/pause`)),
     resume: async (scheduleId: string) => this.request<ScheduleResource>("POST", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}/resume`)),
     delete: async (scheduleId: string) => this.request<{ id: string; deleted: boolean }>("DELETE", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}`)),

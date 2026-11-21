@@ -71,6 +71,7 @@ export function toJob(job: JobDoc) {
     timeoutMs: job.timeoutMs,
     traceId: job.traceId,
     idempotencyKey: job.idempotencyKey ?? null,
+    scheduleId: job.scheduleId ?? null,
     result: job.result === undefined ? null : redact(job.result),
     error: job.error
       ? { message: job.error.message, stack: job.error.stack ?? null, code: job.error.code ?? null }

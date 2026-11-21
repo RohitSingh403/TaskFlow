@@ -18,7 +18,7 @@ async function backlog(queueName: string) {
   return (counts.waiting ?? 0) + (counts.delayed ?? 0) + (counts.prioritized ?? 0) + (counts.paused ?? 0);
 }
 
-async function createOccurrence(schedule: ScheduleDoc, occurrence: Date) {
+async function createOccurrence(schedule: ScheduleDoc, occurrence: Date, idempotencyKey = `sched_${schedule.publicId}_${occurrence.getTime()}`) {
   const project = await Project.findById(schedule.projectId);
   if (!project || project.deletedAt) throw new CronError("Project is no longer available");
   const handler = schedule.handler;
@@ -28,7 +28,6 @@ async function createOccurrence(schedule: ScheduleDoc, occurrence: Date) {
   const simulation = simulationDecision(project.environment, parsed.data);
   if (!simulation.ok) throw new CronError(simulation.message);
 
-  const idempotencyKey = `sched_${schedule.publicId}_${occurrence.getTime()}`;
   const existing = await JobRecord.findOne({ projectId: schedule.projectId, idempotencyKey });
   if (existing) return existing;
 
@@ -178,4 +177,21 @@ export async function produceDueSchedules(now = new Date(), publish?: (event: Re
     }
   }
   return { produced };
+}
+
+export async function runScheduleNow(schedule: ScheduleDoc, now = new Date()) {
+  if (schedule.deletedAt) throw new CronError("Schedule is no longer available");
+  const project = await Project.findById(schedule.projectId);
+  if (!project || project.deletedAt) throw new CronError("Project is no longer available");
+  await assertJobAllowance(project, 1, now);
+  const queue = await QueueConfig.findOne({ _id: schedule.queueId, deletedAt: null });
+  if (!queue) throw new CronError("Queue no longer exists");
+  const limit = queue.maxWaiting || DEFAULT_MAX_WAITING;
+  if ((await backlog(queue.bullQueueName)) >= limit) throw new CronError("This queue is at its waiting-job limit");
+  const job = await createOccurrence(schedule, now, `manual_${schedule.publicId}_${createId("run")}`);
+  await Schedule.updateOne(
+    { _id: schedule._id, deletedAt: null },
+    { $set: { lastRunAt: now, lastJobId: job.publicId, lastError: "" } },
+  );
+  return job;
 }
