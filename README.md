@@ -13,7 +13,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Projects with development and production environments. Development projects may simulate handler failures. Production projects reject that field.
 - Queues with concurrency, an optional rate limit, a waiting-job ceiling, and pause / resume.
 - Job submission by session or API key, with priority, delay, timeout, retry, and idempotency keys.
-- A jobs list window. `from` and `to` keep jobs created in that range. Either side can be left open.
+- A jobs list window. `from` and `to` keep jobs created in that range. Either side can be left open. An idempotency key returns the one job that used it.
 - Run again. Replaying a job queues a new copy with the same handler and payload. The original job stays as it is.
 - Run now. A delayed job moves onto the queue under the same id. The monthly allowance stays where it is.
 - Reschedule. A waiting or delayed job can take a new delay, up to 30 days. The same job id stays, and the monthly allowance does not change.

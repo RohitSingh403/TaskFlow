@@ -138,6 +138,7 @@ export const listJobsQuerySchema = z
     priority: z.enum(PRIORITY_LABELS).optional(),
     name: z.string().trim().max(80).optional(),
     jobId: z.string().trim().max(80).optional(),
+    idempotencyKey: z.string().trim().min(8).max(200).optional(),
     schedule: z.string().trim().max(80).optional(),
     q: z.string().trim().max(120).optional(),
     from: z.string().datetime().optional(),

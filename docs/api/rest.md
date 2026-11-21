@@ -49,7 +49,7 @@ API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `worke
 }
 ```
 
-`Idempotency-Key` header overrides the body field. Lists accept `status`, `queue`, `priority`, `name`, `jobId`, `q`, `from`, `to`, `page`, and `limit` (max 100). `from` and `to` are ISO datetimes on `createdAt`. Leave either one out to leave that side open. A `from` later than `to` returns `400` `VALIDATION_ERROR`.
+`Idempotency-Key` header overrides the body field. Lists accept `status`, `queue`, `priority`, `name`, `jobId`, `idempotencyKey`, `q`, `from`, `to`, `page`, and `limit` (max 100). `idempotencyKey` is an exact match and returns the one job that used that key, or an empty list. A key shorter than 8 characters or longer than 200 returns `400` `VALIDATION_ERROR`. `from` and `to` are ISO datetimes on `createdAt`. Leave either one out to leave that side open. A `from` later than `to` returns `400` `VALIDATION_ERROR`.
 
 A job that has used its attempts stays `failed` on the same queue. `POST /projects/:projectId/jobs/retry-failed` with `{ "queue": "emails", "limit": 20 }` retries the oldest failed jobs, up to 50. The same job id is queued again. A repeated call does not insert another job record.
 
