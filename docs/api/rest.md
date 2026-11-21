@@ -24,7 +24,7 @@ Validation errors include `error.details[]` with `path` and `message`. Unexpecte
 
 Refresh tokens are `HttpOnly` cookies on `/api/v1/auth`, `SameSite=Lax`. The raw token is not stored. Reuse of a revoked refresh token revokes the user's outstanding refresh tokens. A duplicate presentation within 15 seconds of a rotation is rejected without revoking the replacement, and concurrent refreshes of the same token in one API process share a single rotation. This keeps a retried refresh, including React's development double-render, from signing the user out.
 
-API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `workers:read`, `logs:read`, `analytics:read`. Creating keys, projects, and profile changes requires a user session.
+API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `workers:read`, `logs:read`, `analytics:read`. Creating keys, projects, and profile changes requires a user session. `POST /projects/:projectId/api-keys` accepts `expiresInDays` from 1 to 365. Leave it out and the key stays valid until it is revoked. An expired key returns `401` `API_KEY_EXPIRED`. Revoking a key still returns `401` `UNAUTHORIZED`.
 
 ## Projects
 

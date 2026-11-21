@@ -8,7 +8,7 @@ export async function listApiKeys(project: ProjectDoc) {
 
 export async function createApiKey(
   project: ProjectDoc,
-  input: { name: string; description?: string; scopes: ApiScope[] },
+  input: { name: string; description?: string; scopes: ApiScope[]; expiresInDays?: number },
   actorId: string,
 ) {
   const secret = createApiKeySecret();
@@ -20,6 +20,7 @@ export async function createApiKey(
     prefix: secret.prefix,
     keyHash: secret.hash,
     scopes: input.scopes,
+    expiresAt: input.expiresInDays ? new Date(Date.now() + input.expiresInDays * 86_400_000) : undefined,
     createdBy: actorId,
   });
   await AuditLog.create({
@@ -29,7 +30,7 @@ export async function createApiKey(
     action: "api_key.created",
     targetType: "api_key",
     targetId: key.publicId,
-    metadata: { name: key.name, scopes: key.scopes },
+    metadata: { name: key.name, scopes: key.scopes, expiresAt: key.expiresAt?.toISOString() ?? null },
   });
   return { key, secret: secret.secret };
 }
