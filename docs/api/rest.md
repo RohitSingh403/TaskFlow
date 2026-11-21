@@ -86,7 +86,7 @@ A job that has used its attempts stays `failed` on the same queue. `POST /projec
 }
 ```
 
-`cron` is five fields: minute, hour, day of month, month, weekday. `POST /pause` stops future occurrences. `POST /resume` moves `nextRunAt` forward when the stored time is already past, so a resume does not fire a missed tick immediately. Deleting a schedule is soft. Jobs already created keep running.
+`cron` is five fields: minute, hour, day of month, month, weekday. `PATCH /projects/:projectId/schedules/:scheduleId` changes the schedule in place. The id, pause state, and jobs already created stay. A new `cron` or `timeZone` recalculates `nextRunAt` from the current time. An invalid pattern or time zone returns `400` `INVALID_SCHEDULE`. An empty body returns `400` `VALIDATION_ERROR`. `POST /pause` stops future occurrences. `POST /resume` moves `nextRunAt` forward when the stored time is already past, so a resume does not fire a missed tick immediately. Deleting a schedule is soft. Jobs already created keep running.
 
 `POST /projects/:projectId/schedules/:scheduleId/run` queues one job immediately. It does not change `nextRunAt`. A paused schedule can still be run. The job counts toward the monthly allowance. A second call creates another job. If the scheduler is down for more than a minute, missed cron ticks are still skipped.
 

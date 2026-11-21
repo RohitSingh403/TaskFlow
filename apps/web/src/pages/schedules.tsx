@@ -13,6 +13,7 @@ export function SchedulesPage() {
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Schedule | null>(null);
   const [removeId, setRemoveId] = useState<string | null>(null);
   const schedules = useQuery({
     queryKey: ["schedules", projectId],
@@ -56,7 +57,7 @@ export function SchedulesPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Schedules</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            One scheduler process turns a cron pattern into a normal job. Run now queues one job and leaves the next cron time where it is. Missed ticks older than a minute are skipped.
+            One scheduler process turns a cron pattern into a normal job. Edit keeps the same schedule. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time where it is. Missed ticks older than a minute are skipped.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New schedule</Button>
@@ -94,6 +95,7 @@ export function SchedulesPage() {
                     <td className="px-4 py-3 text-right">
                       <div className="flex justify-end gap-2">
                         <Link to={`/jobs?schedule=${schedule.id}`} className="inline-flex h-8 items-center px-2 text-[13px] text-muted hover:text-ink">Jobs</Link>
+                        <Button size="sm" variant="secondary" onClick={() => setEditing(schedule)}>Edit</Button>
                         <Button size="sm" variant="secondary" loading={run.isPending} onClick={() => run.mutate(schedule)}>Run now</Button>
                         <Button size="sm" variant="secondary" onClick={() => pause.mutate(schedule)}>{schedule.paused ? "Resume" : "Pause"}</Button>
                         <Button size="sm" variant="danger" onClick={() => setRemoveId(schedule.id)}>Delete</Button>
@@ -107,6 +109,7 @@ export function SchedulesPage() {
         </Card>
       ) : null}
       <CreateSchedule open={open} onClose={() => setOpen(false)} />
+      <EditSchedule schedule={editing} onClose={() => setEditing(null)} />
       <Dialog open={Boolean(removeId)} title="Delete schedule" description="Future occurrences stop. Jobs that already exist stay in their queue." onClose={() => setRemoveId(null)}>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setRemoveId(null)}>Keep</Button>
@@ -210,6 +213,91 @@ function CreateSchedule({ open, onClose }: { open: boolean; onClose: () => void 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
           <Button type="submit" loading={create.isPending}>Create</Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+function EditSchedule({ schedule, onClose }: { schedule: Schedule | null; onClose: () => void }) {
+  const projectId = useSession((state) => state.projectId);
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const queues = useQuery({
+    queryKey: ["queues", projectId],
+    queryFn: () => api<Queue[]>(`/projects/${projectId}/queues`),
+    enabled: Boolean(schedule) && Boolean(projectId),
+  });
+  const [name, setName] = useState("");
+  const [cron, setCron] = useState("");
+  const [timeZone, setTimeZone] = useState("UTC");
+  const [queue, setQueue] = useState("");
+  const [payload, setPayload] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!schedule) return;
+    setName(schedule.name);
+    setCron(schedule.cron);
+    setTimeZone(schedule.timeZone);
+    setQueue(schedule.queue);
+    setPayload(JSON.stringify(schedule.payload, null, 2));
+    setError("");
+  }, [schedule]);
+
+  const save = useMutation({
+    mutationFn: (body: Record<string, unknown>) => api<Schedule>(`/projects/${projectId}/schedules/${schedule?.id}`, { method: "PATCH", body: JSON.stringify(body) }),
+    onSuccess: (result) => {
+      toast("success", `Next run ${formatWhen(result.data.nextRunAt)}`);
+      setError("");
+      onClose();
+      void client.invalidateQueries({ queryKey: ["schedules", projectId] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : "Could not update the schedule"),
+  });
+
+  const queueNames = queues.data?.data.map((item) => item.name) ?? [];
+  const options = queue && !queueNames.includes(queue) ? [queue, ...queueNames] : queueNames;
+
+  return (
+    <Dialog open={Boolean(schedule)} title="Edit schedule" description="The schedule id stays. A new cron or time zone recalculates the next run. Pause state stays as it is." onClose={onClose}>
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          let parsed: Record<string, unknown>;
+          try {
+            parsed = JSON.parse(payload) as Record<string, unknown>;
+          } catch {
+            setError("Payload must be valid JSON");
+            return;
+          }
+          save.mutate({ name, queue, payload: parsed, cron, timeZone });
+        }}
+      >
+        <Field label="Name">
+          <TextInput value={name} onChange={(event) => setName(event.target.value)} required aria-label="Schedule name" />
+        </Field>
+        <Field label="Queue">
+          <SelectInput value={queue} onChange={(event) => setQueue(event.target.value)} aria-label="Queue">
+            {options.map((item) => <option key={item} value={item}>{item}</option>)}
+          </SelectInput>
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Cron">
+            <TextInput value={cron} onChange={(event) => setCron(event.target.value)} required aria-label="Cron" className="font-mono" />
+          </Field>
+          <Field label="Time zone">
+            <TextInput value={timeZone} onChange={(event) => setTimeZone(event.target.value)} required aria-label="Time zone" />
+          </Field>
+        </div>
+        <Field label="Payload">
+          <TextArea value={payload} onChange={(event) => setPayload(event.target.value)} aria-label="Payload" />
+        </Field>
+        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={save.isPending}>Save</Button>
         </div>
       </form>
     </Dialog>

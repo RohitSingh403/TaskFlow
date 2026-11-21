@@ -134,6 +134,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/jobs/retry-failed", "Retry up to 50 failed jobs"],
     ["POST", "/projects/:id/jobs/cancel-queued", "Cancel up to 50 waiting or delayed jobs"],
     ["POST", "/projects/:id/schedules", "Create a recurring schedule"],
+    ["PATCH", "/projects/:id/schedules/:scheduleId", "Change a schedule and keep its id"],
     ["POST", "/projects/:id/schedules/:scheduleId/run", "Queue one occurrence now"],
     ["POST", "/projects/:id/schedules/:scheduleId/pause", "Stop future occurrences"],
     ["POST", "/projects/:id/workflows", "Create a workflow of dependent jobs"],

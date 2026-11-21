@@ -21,7 +21,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Move. A waiting or delayed job can move to another queue in the same project. A workflow step stays on the queue that owns its run. The monthly allowance does not change.
 - A dead-letter view of jobs that used their attempts, and a bulk retry that puts those same jobs back on their queues.
 - A bulk cancel for waiting and delayed jobs. Active jobs stay. Workflow steps are left for the run that owns them.
-- Recurring schedules. A separate scheduler process creates one normal job per cron tick. Run now queues one job and leaves the next cron time unchanged.
+- Recurring schedules. A separate scheduler process creates one normal job per cron tick. Editing a schedule keeps its id. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time unchanged.
 - Workflows. A run is a tree of normal jobs. Children finish before the parent that waits on them.
 - Alert rules for queue backlog, failure rate, offline workers, and long-running jobs. The scheduler opens an in-app alert and then waits out a cooldown.
 - Signed outbound webhooks for job completion, failure, cancellation, and fired alerts. Delivery is at least once from the worker. Send again queues that same delivery id.
@@ -158,6 +158,7 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | POST | `/projects/:id/queues/:queueId/pause` | Pause a queue |
 | POST | `/projects/:id/jobs` | Submit a job |
 | POST | `/projects/:id/schedules` | Create a recurring schedule |
+| PATCH | `/projects/:id/schedules/:scheduleId` | Change a schedule and keep its id |
 | POST | `/projects/:id/schedules/:scheduleId/pause` | Pause future occurrences |
 | POST | `/projects/:id/workflows` | Create a workflow |
 | POST | `/projects/:id/workflows/:workflowId/runs` | Start a workflow run |
