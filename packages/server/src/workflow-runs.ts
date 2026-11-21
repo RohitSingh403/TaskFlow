@@ -3,7 +3,7 @@ import { JobRecord, WorkflowRun } from "./models.js";
 export async function syncWorkflowRun(workflowRunId: string | undefined) {
   if (!workflowRunId) return;
   const run = await WorkflowRun.findOne({ publicId: workflowRunId });
-  if (!run) return;
+  if (!run || run.status === "cancelled") return;
   const jobs = await JobRecord.find({ workflowRunId });
   const failed = jobs.find((job) => job.status === "failed");
   const completed = jobs.filter((job) => job.status === "completed").length;

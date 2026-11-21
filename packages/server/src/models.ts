@@ -366,7 +366,7 @@ const workflowRunSchema = new Schema(
     projectPublicId: { type: String, required: true },
     workflowId: { type: Schema.Types.ObjectId, ref: "Workflow", required: true },
     workflowPublicId: { type: String, required: true },
-    status: { type: String, enum: ["waiting", "active", "completed", "failed"], required: true },
+    status: { type: String, enum: ["waiting", "active", "completed", "failed", "cancelled"], required: true },
     steps: { type: [workflowRunStepSchema], required: true },
     failedStepKey: { type: String },
     startedAt: { type: Date, required: true },

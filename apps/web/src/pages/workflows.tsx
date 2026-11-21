@@ -63,7 +63,7 @@ export function WorkflowsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Workflows</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step.
+            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Cancel removes the steps that are still waiting and keeps the run id.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New workflow</Button>
@@ -268,7 +268,7 @@ export function WorkflowDetailPage() {
     queryFn: () => api<WorkflowRun>(`/projects/${projectId}/workflows/${workflowId}/runs/${runId}`),
     refetchInterval: (query) => {
       const status = query.state.data?.data.status;
-      return status === "completed" || status === "failed" ? false : 2_000;
+      return status === "completed" || status === "failed" || status === "cancelled" ? false : 2_000;
     },
   });
   const start = useMutation({
@@ -280,6 +280,18 @@ export function WorkflowDetailPage() {
       void client.invalidateQueries({ queryKey: ["workflows", projectId] });
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not start the workflow"),
+  });
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const cancel = useMutation({
+    mutationFn: (id: string) => api<WorkflowRun>(`/projects/${projectId}/workflows/${workflowId}/runs/${id}/cancel`, { method: "POST" }),
+    onSuccess: () => {
+      toast("success", "Workflow run cancelled");
+      setCancelOpen(false);
+      void client.invalidateQueries({ queryKey: ["workflow-run", projectId, workflowId] });
+      void client.invalidateQueries({ queryKey: ["workflow", projectId, workflowId] });
+      void client.invalidateQueries({ queryKey: ["workflows", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not cancel the workflow"),
   });
   const retry = useMutation({
     mutationFn: (jobId: string) => api<Job>(`/projects/${projectId}/jobs/${jobId}/retry`, { method: "POST" }),
@@ -346,7 +358,12 @@ export function WorkflowDetailPage() {
         <Card className="overflow-x-auto">
           <div className="flex items-center justify-between px-4 py-3">
             <h2 className="text-[14px] font-medium">Run</h2>
-            <JobStatusPill status={run.data.data.status} />
+            <div className="flex items-center gap-2">
+              {run.data.data.steps.some((step) => step.status === "waiting" || step.status === "delayed") ? (
+                <Button size="sm" variant="secondary" onClick={() => setCancelOpen(true)}>Cancel</Button>
+              ) : null}
+              <JobStatusPill status={run.data.data.status} />
+            </div>
           </div>
           <table className="w-full min-w-[720px] text-left text-[13px]">
             <thead className="text-[12px] text-muted">
@@ -379,6 +396,12 @@ export function WorkflowDetailPage() {
       ) : (
         <EmptyState title="No run yet" body="Run the workflow to create one job per step. Later steps stay waiting until the steps they depend on complete." />
       )}
+      <Dialog open={cancelOpen} title="Cancel this run" description="Waiting and delayed steps are removed from their queues. Completed and failed steps stay. A step that is already running cannot be cancelled." onClose={() => setCancelOpen(false)}>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setCancelOpen(false)}>Keep</Button>
+          <Button variant="danger" loading={cancel.isPending} onClick={() => runId && cancel.mutate(runId)}>Cancel run</Button>
+        </div>
+      </Dialog>
     </div>
   );
 }

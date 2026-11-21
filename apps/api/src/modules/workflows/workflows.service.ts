@@ -31,6 +31,7 @@ import {
 } from "@taskflow/shared";
 import type { FlowJob, JobsOptions } from "bullmq";
 import { AppError } from "../../errors.js";
+import { cancelJob } from "../jobs/jobs.service.js";
 import { publish } from "../../infrastructure.js";
 import { zodDetails } from "../../middleware/common.js";
 import type { AuthContext } from "../../types.js";
@@ -384,6 +385,59 @@ export async function listWorkflowRuns(project: ProjectDoc, workflowId: string) 
   const workflow = await Workflow.findOne({ projectId: project._id, publicId: workflowId, deletedAt: null }) as WorkflowDoc | null;
   if (!workflow) throw new AppError(404, "WORKFLOW_NOT_FOUND", "Workflow not found");
   return WorkflowRun.find({ workflowId: workflow._id }).sort({ createdAt: -1 }).limit(20) as Promise<WorkflowRunDoc[]>;
+}
+
+export async function cancelWorkflowRun(project: ProjectDoc, workflowId: string, runId: string, auth: AuthContext) {
+  const workflow = await Workflow.findOne({ projectId: project._id, publicId: workflowId, deletedAt: null }) as WorkflowDoc | null;
+  if (!workflow) throw new AppError(404, "WORKFLOW_NOT_FOUND", "Workflow not found");
+  const run = await WorkflowRun.findOne({ workflowId: workflow._id, publicId: runId }) as WorkflowRunDoc | null;
+  if (!run) throw new AppError(404, "WORKFLOW_RUN_NOT_FOUND", "Workflow run not found");
+  if (run.status === "cancelled") throw new AppError(409, "WORKFLOW_RUN_NOT_CANCELLABLE", "This run is already cancelled");
+  if (run.status === "completed") throw new AppError(409, "WORKFLOW_RUN_NOT_CANCELLABLE", "This run has already finished");
+
+  const jobs = await JobRecord.find({ workflowRunId: run.publicId }) as JobDoc[];
+  if (jobs.some((job) => job.status === "active")) {
+    throw new AppError(409, "WORKFLOW_RUN_NOT_CANCELLABLE", "An active step cannot be cancelled safely");
+  }
+  const waiting = jobs.filter((job) => job.status === "waiting" || job.status === "delayed");
+  if (waiting.length === 0) throw new AppError(409, "WORKFLOW_RUN_NOT_CANCELLABLE", "This run has already finished");
+  for (const job of waiting) {
+    const bullJob = await getBullQueue(job.bullQueueName).getJob(job.publicId);
+    if (bullJob && (await bullJob.getState()) === "active") {
+      throw new AppError(409, "WORKFLOW_RUN_NOT_CANCELLABLE", "An active step cannot be cancelled safely");
+    }
+  }
+
+  const dependedOn = new Set(run.steps.flatMap((step) => step.dependsOn));
+  const ordered = [
+    ...run.steps.filter((step) => !dependedOn.has(step.key)),
+    ...run.steps.filter((step) => dependedOn.has(step.key)),
+  ];
+  const byKey = new Map(waiting.map((job) => [job.workflowStepKey, job]));
+  let cancelled = 0;
+  for (const step of ordered) {
+    const job = byKey.get(step.key);
+    if (!job) continue;
+    await cancelJob(project, job.publicId, auth);
+    cancelled += 1;
+  }
+
+  const finished = new Date();
+  run.status = "cancelled";
+  run.completedAt = finished;
+  run.durationMs = finished.getTime() - run.startedAt.getTime();
+  run.set("failedStepKey", undefined);
+  await run.save();
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "workflow.cancelled",
+    targetType: "workflow_run",
+    targetId: run.publicId,
+    metadata: { workflowId: workflow.publicId, cancelled },
+  });
+  return getWorkflowRun(project, workflowId, runId);
 }
 
 export async function getWorkflowRun(project: ProjectDoc, workflowId: string, runId: string) {

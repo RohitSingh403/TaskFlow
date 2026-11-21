@@ -100,7 +100,7 @@ export interface WorkflowRunStep {
 export interface WorkflowRun {
   id: string;
   workflowId: string;
-  status: "waiting" | "active" | "completed" | "failed";
+  status: "waiting" | "active" | "completed" | "failed" | "cancelled";
   failedStepKey: string | null;
   startedAt: string;
   completedAt: string | null;
