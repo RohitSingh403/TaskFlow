@@ -19,7 +19,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Reschedule. A waiting or delayed job can take a new delay, up to 30 days. The same job id stays, and the monthly allowance does not change.
 - Update priority. A waiting or delayed job can move between high, medium, and low. The same job id stays, and the monthly allowance does not change.
 - Move. A waiting or delayed job can move to another queue in the same project. A workflow step stays on the queue that owns its run. The monthly allowance does not change.
-- A dead-letter view of jobs that used their attempts, and a bulk retry that puts those same jobs back on their queues.
+- A dead-letter view of jobs that used their attempts, and a bulk retry that puts those same jobs back on their queues. Dismiss takes a failed job off that list and leaves it failed. Restore puts it back. Bulk retry skips dismissed jobs.
 - A bulk cancel for waiting and delayed jobs. Active jobs stay. Workflow steps are left for the run that owns them.
 - Recurring schedules. A separate scheduler process creates one normal job per cron tick. Editing a schedule keeps its id. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time unchanged.
 - Workflows. A run is a tree of normal jobs. Children finish before the parent that waits on them. Cancel removes the steps that are still waiting and keeps the run id. An active step is left to finish, and that cancel is refused until it does.
@@ -157,6 +157,8 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | GET | `/projects/:id/queues` | List queues and BullMQ counts |
 | POST | `/projects/:id/queues/:queueId/pause` | Pause a queue |
 | POST | `/projects/:id/jobs` | Submit a job |
+| POST | `/projects/:id/jobs/:jobId/dismiss` | Take a failed job off the dead letter list |
+| POST | `/projects/:id/jobs/:jobId/restore` | Put a dismissed job back on the dead letter list |
 | POST | `/projects/:id/schedules` | Create a recurring schedule |
 | PATCH | `/projects/:id/schedules/:scheduleId` | Change a schedule and keep its id |
 | POST | `/projects/:id/schedules/:scheduleId/pause` | Pause future occurrences |

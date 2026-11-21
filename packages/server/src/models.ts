@@ -153,6 +153,7 @@ const jobSchema = new Schema(
     startedAt: { type: Date },
     completedAt: { type: Date },
     durationMs: { type: Number },
+    dismissedAt: { type: Date },
     removedAt: { type: Date },
   },
   { timestamps: true, versionKey: false },

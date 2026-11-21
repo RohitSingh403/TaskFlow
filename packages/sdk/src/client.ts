@@ -171,6 +171,8 @@ export class TaskFlow {
     cancelQueued: async (input: { queue?: string; limit?: number } = {}) =>
       this.request<{ cancelled: number; skipped: number; jobIds: string[] }>("POST", await this.projectPath("/jobs/cancel-queued"), { body: input }),
     cancel: async (jobId: string) => this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/cancel`)),
+    dismiss: async (jobId: string) => this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/dismiss`)),
+    restore: async (jobId: string) => this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/restore`)),
     delete: async (jobId: string) => this.request<Job>("DELETE", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}`)),
   };
 

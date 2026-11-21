@@ -81,6 +81,7 @@ export function toJob(job: JobDoc) {
     createdAt: job.createdAt?.toISOString(),
     startedAt: job.startedAt?.toISOString() ?? null,
     completedAt: job.completedAt?.toISOString() ?? null,
+    dismissedAt: job.dismissedAt?.toISOString() ?? null,
     durationMs: job.durationMs ?? null,
   };
 }

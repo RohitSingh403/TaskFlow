@@ -6,7 +6,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, readQuery, requireScope, validateBody, validateQuery } from "../../middleware/common.js";
 import { loadProject } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { cancelJob, cancelQueuedJobs, getJob, listAttempts, listJobs, moveJob, promoteJob, removeJob, replayJob, rescheduleJob, retryFailedJobs, retryJob, submitJob, updateJobPriority } from "./jobs.service.js";
+import { cancelJob, cancelQueuedJobs, dismissJob, getJob, listAttempts, listJobs, moveJob, promoteJob, removeJob, replayJob, rescheduleJob, restoreJob, retryFailedJobs, retryJob, submitJob, updateJobPriority } from "./jobs.service.js";
 import type { JobListQuery } from "./jobs.service.js";
 
 export const jobRouter = Router({ mergeParams: true });
@@ -135,6 +135,24 @@ jobRouter.post(
   validateBody(moveJobSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, toJob(await moveJob(req.project!, String(req.params.jobId), req.body, req.auth!)));
+  }),
+);
+
+jobRouter.post(
+  "/:jobId/dismiss",
+  writeLimiter,
+  requireScope("jobs:write"),
+  asyncHandler(async (req, res) => {
+    sendOk(res, toJob(await dismissJob(req.project!, String(req.params.jobId), req.auth!)));
+  }),
+);
+
+jobRouter.post(
+  "/:jobId/restore",
+  writeLimiter,
+  requireScope("jobs:write"),
+  asyncHandler(async (req, res) => {
+    sendOk(res, toJob(await restoreJob(req.project!, String(req.params.jobId), req.auth!)));
   }),
 );
 
