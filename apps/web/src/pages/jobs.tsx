@@ -63,7 +63,7 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. Run now moves a delayed job onto the queue. Reschedule sets a new delay, and Update priority changes the queue order, while a job is waiting or delayed. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
         </div>
         <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
       </div>
@@ -139,6 +139,11 @@ export function JobDetailPage() {
     enabled: Boolean(projectId && jobId),
     queryFn: () => api<Attempt[]>(`/projects/${projectId}/jobs/${jobId}/attempts`),
   });
+  const queues = useQuery({
+    queryKey: ["queues", projectId],
+    enabled: Boolean(projectId),
+    queryFn: () => api<Queue[]>(`/projects/${projectId}/queues`),
+  });
   const action = useMutation({
     mutationFn: async (kind: "retry" | "cancel" | "remove") => {
       const path = kind === "remove" ? `/projects/${projectId}/jobs/${jobId}` : `/projects/${projectId}/jobs/${jobId}/${kind}`;
@@ -197,6 +202,19 @@ export function JobDetailPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not update the priority"),
   });
+  const move = useMutation({
+    mutationFn: (queue: string) => api<Job>(`/projects/${projectId}/jobs/${jobId}/queue`, {
+      method: "POST",
+      body: JSON.stringify({ queue }),
+    }),
+    onSuccess: (result) => {
+      toast("success", result.data.queue === dataQueue ? `Job is already on ${result.data.queue}` : `Moved to ${result.data.queue}`);
+      void client.invalidateQueries({ queryKey: ["job", projectId, jobId] });
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not move the job"),
+  });
+  const dataQueue = job.data?.data.queue;
   if (job.isLoading) return <p className="text-[13px] text-muted">Loading job…</p>;
   if (!job.data) return <EmptyState title="Job not found" body="This job is not in the current project." />;
   const data = job.data.data;
@@ -262,6 +280,23 @@ export function JobDetailPage() {
               </SelectInput>
             </label>
             <Button type="submit" variant="secondary" disabled={updatePriority.isPending}>Update priority</Button>
+          </form>
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              move.mutate(String(new FormData(event.currentTarget).get("queue") ?? ""));
+            }}
+          >
+            <label className="text-[13px] text-muted">
+              Queue
+              <SelectInput name="queue" aria-label="Destination queue" defaultValue={data.queue} key={`${data.queue}:${queues.data?.data.length ?? 0}`} className="mt-1.5 w-40">
+                {(queues.data?.data ?? []).map((queue) => (
+                  <option key={queue.id} value={queue.name}>{queue.name}</option>
+                ))}
+              </SelectInput>
+            </label>
+            <Button type="submit" variant="secondary" disabled={move.isPending || (queues.data?.data.length ?? 0) === 0}>Move</Button>
           </form>
         </div>
       ) : null}

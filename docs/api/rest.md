@@ -63,6 +63,8 @@ A job that has used its attempts stays `failed` on the same queue. `POST /projec
 
 `POST /projects/:projectId/jobs/:jobId/priority` with `{ "priority": "high" }` changes the priority of a waiting or delayed job. `high`, `medium`, and `low` are the same labels used at submission. The same job id stays, along with its delay, idempotency key, schedule, and workflow run. This does not count toward the monthly allowance. An active, completed, failed, or cancelled job returns `409` `JOB_NOT_QUEUED`. Sending the priority the job already has leaves that job as it is.
 
+`POST /projects/:projectId/jobs/:jobId/queue` with `{ "queue": "reports" }` moves a waiting or delayed job onto another queue in the same project. The same job id stays, along with its delay, priority, idempotency key, and schedule. This does not count toward the monthly allowance. The destination queue's waiting ceiling still applies and returns `429` `QUEUE_BACKPRESSURE` when it is full; the job stays on its current queue. Naming the queue the job is already on leaves that job as it is. A workflow step returns `409` `WORKFLOW_JOB`. An unknown queue returns `404` `QUEUE_NOT_FOUND`. An active, completed, failed, or cancelled job returns `409` `JOB_NOT_QUEUED`.
+
 `_simulate` is allowed only when the project environment is `development`:
 
 ```json

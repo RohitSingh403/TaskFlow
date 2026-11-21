@@ -477,6 +477,51 @@ export async function updateJobPriority(
   return job;
 }
 
+export async function moveJob(project: ProjectDoc, jobId: string, input: { queue: string }, auth: AuthContext) {
+  const job = await getJob(project, jobId);
+  if (!["waiting", "delayed"].includes(job.status)) {
+    throw new AppError(409, "JOB_NOT_QUEUED", "Only a waiting or delayed job can move to another queue");
+  }
+  if (job.workflowRunId) {
+    throw new AppError(409, "WORKFLOW_JOB", "A workflow step stays on the queue that owns its run");
+  }
+  const queue = await QueueConfig.findOne({ projectId: project._id, name: input.queue, deletedAt: null });
+  if (!queue) throw new AppError(404, "QUEUE_NOT_FOUND", "Queue not found");
+  if (queue.name === job.queueName) return job;
+  const previous = job.queueName;
+  const previousBull = job.bullQueueName;
+  const bullJob = await getBullQueue(previousBull).getJob(job.publicId);
+  if (bullJob) {
+    const state = await bullJob.getState();
+    if (state === "active") throw new AppError(409, "JOB_NOT_QUEUED", "An active job cannot move to another queue");
+    if (!["waiting", "delayed", "prioritized", "paused"].includes(state)) {
+      throw new AppError(409, "JOB_NOT_QUEUED", "Only a waiting or delayed job can move to another queue");
+    }
+  }
+  await assertCapacity(queue);
+  if (bullJob) await bullJob.remove();
+  job.queueId = queue._id;
+  job.queuePublicId = queue.publicId;
+  job.queueName = queue.name;
+  job.bullQueueName = queue.bullQueueName;
+  await placeOnQueue(job);
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "job.moved",
+    targetType: "job",
+    targetId: job.publicId,
+    metadata: { queue: queue.name, previous },
+  });
+  await publish({
+    type: "job.updated",
+    projectId: project.publicId,
+    data: { jobId: job.publicId, status: job.status, queue: job.queueName },
+  });
+  return job;
+}
+
 export async function retryFailedJobs(
   project: ProjectDoc,
   input: { queue?: string; limit?: number },

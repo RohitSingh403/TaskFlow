@@ -18,6 +18,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Run now. A delayed job moves onto the queue under the same id. The monthly allowance stays where it is.
 - Reschedule. A waiting or delayed job can take a new delay, up to 30 days. The same job id stays, and the monthly allowance does not change.
 - Update priority. A waiting or delayed job can move between high, medium, and low. The same job id stays, and the monthly allowance does not change.
+- Move. A waiting or delayed job can move to another queue in the same project. A workflow step stays on the queue that owns its run. The monthly allowance does not change.
 - A dead-letter view of jobs that used their attempts, and a bulk retry that puts those same jobs back on their queues.
 - A bulk cancel for waiting and delayed jobs. Active jobs stay. Workflow steps are left for the run that owns them.
 - Recurring schedules. A separate scheduler process creates one normal job per cron tick. Run now queues one job and leaves the next cron time unchanged.
