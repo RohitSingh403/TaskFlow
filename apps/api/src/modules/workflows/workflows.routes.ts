@@ -10,6 +10,7 @@ import {
   createWorkflow,
   deleteWorkflow,
   getWorkflow,
+  cancelWorkflowRun,
   getWorkflowRun,
   listWorkflowRuns,
   listWorkflows,
@@ -90,6 +91,16 @@ workflowRouter.get(
   asyncHandler(async (req, res) => {
     const runs = await listWorkflowRuns(req.project!, String(req.params.workflowId));
     sendOk(res, runs.map((run) => toWorkflowRun(run)));
+  }),
+);
+
+workflowRouter.post(
+  "/:workflowId/runs/:runId/cancel",
+  writeLimiter,
+  requireScope("jobs:write"),
+  asyncHandler(async (req, res) => {
+    const row = await cancelWorkflowRun(req.project!, String(req.params.workflowId), String(req.params.runId), req.auth!);
+    sendOk(res, toWorkflowRun(row.run, row.jobs));
   }),
 );
 

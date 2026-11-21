@@ -120,6 +120,8 @@ A workflow has 2 to 8 steps and exactly one final step. A step may wait for seve
 
 `POST /projects/:projectId/workflows/:workflowId/runs` creates one job per step and submits them together. The email stays waiting until the report completes. If the report fails and has no attempts left, the email does not run. `POST /projects/:projectId/jobs/:jobId/retry` on that failed job lets the rest of the tree continue. Name and description can change after creation. The step list cannot. Deleting a workflow is soft.
 
+`POST /projects/:projectId/workflows/:workflowId/runs/:runId/cancel` removes every waiting or delayed step and marks the run `cancelled`. Completed and failed steps stay on the same run id. An active step returns `409` `WORKFLOW_RUN_NOT_CANCELLABLE`. A run that has already finished or is already cancelled returns the same code. A later update does not move a cancelled run back to waiting, active, completed, or failed.
+
 ## Alerts
 
 `POST /projects/:projectId/alerts/rules`

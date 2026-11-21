@@ -22,7 +22,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - A dead-letter view of jobs that used their attempts, and a bulk retry that puts those same jobs back on their queues.
 - A bulk cancel for waiting and delayed jobs. Active jobs stay. Workflow steps are left for the run that owns them.
 - Recurring schedules. A separate scheduler process creates one normal job per cron tick. Editing a schedule keeps its id. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time unchanged.
-- Workflows. A run is a tree of normal jobs. Children finish before the parent that waits on them.
+- Workflows. A run is a tree of normal jobs. Children finish before the parent that waits on them. Cancel removes the steps that are still waiting and keeps the run id. An active step is left to finish, and that cancel is refused until it does.
 - Alert rules for queue backlog, failure rate, offline workers, and long-running jobs. The scheduler opens an in-app alert and then waits out a cooldown. Silence skips a rule until a chosen time. The rule stays enabled.
 - Signed outbound webhooks for job completion, failure, cancellation, and fired alerts. Delivery is at least once from the worker. Edit changes the URL or events and keeps the endpoint id and signing secret. Send test queues a `webhook.test` delivery without waiting for a job. Rotate replaces the signing secret, and deliveries that have not been sent use the new one. Send again queues that same delivery id.
 - A separate worker process, heartbeats, and health derived from those heartbeats.
@@ -162,6 +162,7 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | POST | `/projects/:id/schedules/:scheduleId/pause` | Pause future occurrences |
 | POST | `/projects/:id/workflows` | Create a workflow |
 | POST | `/projects/:id/workflows/:workflowId/runs` | Start a workflow run |
+| POST | `/projects/:id/workflows/:workflowId/runs/:runId/cancel` | Cancel the steps that are still waiting |
 | POST | `/projects/:id/alerts/rules` | Create an alert rule |
 | POST | `/projects/:id/alerts/rules/:ruleId/silence` | Skip a rule until a chosen time |
 | GET | `/projects/:id/alerts` | Alert history |
@@ -204,6 +205,6 @@ packages/sdk    TypeScript client for the HTTP API
 - Rate limits on the BullMQ worker are per queue and shared through Redis. API rate limits also use Redis.
 - The built-in handlers simulate work. They are the trusted registry a real deployment would replace with its own functions, still without accepting arbitrary code from API callers.
 - A scheduler that is down for more than a minute skips the ticks it missed. It does not replay a backlog when it returns.
-- A workflow is a tree. A step can wait for several earlier steps, and each earlier step can feed only one later step. A failed step keeps every step that waits on it from running until that failed job is retried.
+- A workflow is a tree. A step can wait for several earlier steps, and each earlier step can feed only one later step. A failed step keeps every step that waits on it from running until that failed job is retried. Cancel removes the steps that are still waiting.
 - Alerts stay in the dashboard until a webhook is registered for `alert.fired`. A rule that remains true does not open another alert until its cooldown has passed.
 - `@taskflow/sdk` retries a create only when that create has an idempotency key. Other writes are not retried. `jobs.wait` polls the accepted job. It does not open a socket.

@@ -207,6 +207,8 @@ export class TaskFlow {
       this.request<WorkflowResource>("PATCH", await this.projectPath(`/workflows/${encodeURIComponent(workflowId)}`), { body: input }),
     delete: async (workflowId: string) => this.request<{ deleted: boolean }>("DELETE", await this.projectPath(`/workflows/${encodeURIComponent(workflowId)}`)),
     start: async (workflowId: string) => this.request<WorkflowRun>("POST", await this.projectPath(`/workflows/${encodeURIComponent(workflowId)}/runs`)),
+    cancel: async (workflowId: string, runId: string) =>
+      this.request<WorkflowRun>("POST", await this.projectPath(`/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}/cancel`)),
     runs: async (workflowId: string) => this.request<WorkflowRun[]>("GET", await this.projectPath(`/workflows/${encodeURIComponent(workflowId)}/runs`)),
     run: async (workflowId: string, runId: string) =>
       this.request<WorkflowRun>("GET", await this.projectPath(`/workflows/${encodeURIComponent(workflowId)}/runs/${encodeURIComponent(runId)}`)),
