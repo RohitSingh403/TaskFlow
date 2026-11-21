@@ -57,6 +57,8 @@ A job that has used its attempts stays `failed` on the same queue. `POST /projec
 
 `POST /projects/:projectId/jobs/:jobId/replay` queues a new job with the same handler, payload, queue, priority, attempts, backoff, and timeout. The copy waits immediately, even when the original was delayed. It does not keep the idempotency key, schedule, or workflow run. The original job is unchanged. The copy counts toward the monthly allowance, and the queue waiting ceiling still applies. A second call creates another job.
 
+`POST /projects/:projectId/jobs/:jobId/promote` runs a delayed job now. The same job id moves from delayed to waiting, and its delay becomes 0. The idempotency key, schedule, and workflow run stay on that job. This does not count toward the monthly allowance. A waiting, active, completed, failed, or cancelled job returns `409` `JOB_NOT_DELAYED`. A second call returns the same code, because the job is no longer delayed.
+
 `_simulate` is allowed only when the project environment is `development`:
 
 ```json

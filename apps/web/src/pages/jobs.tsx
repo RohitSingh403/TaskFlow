@@ -63,7 +63,7 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. Run now moves a delayed job onto the queue. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
         </div>
         <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
       </div>
@@ -161,6 +161,15 @@ export function JobDetailPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not run the job again"),
   });
+  const promote = useMutation({
+    mutationFn: () => api<Job>(`/projects/${projectId}/jobs/${jobId}/promote`, { method: "POST" }),
+    onSuccess: () => {
+      toast("success", "Job queued to run now");
+      void client.invalidateQueries({ queryKey: ["job", projectId, jobId] });
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not run the job now"),
+  });
   if (job.isLoading) return <p className="text-[13px] text-muted">Loading job…</p>;
   if (!job.data) return <EmptyState title="Job not found" body="This job is not in the current project." />;
   const data = job.data.data;
@@ -182,16 +191,18 @@ export function JobDetailPage() {
         </div>
         <div className="flex gap-2">
           <Button variant="secondary" disabled={replay.isPending || action.isPending} onClick={() => replay.mutate()}>Run again</Button>
+          <Button variant="secondary" disabled={data.status !== "delayed" || promote.isPending || action.isPending} onClick={() => promote.mutate()}>Run now</Button>
           <Button variant="secondary" disabled={data.status !== "failed" || action.isPending} onClick={() => action.mutate("retry")}>Retry</Button>
           <Button variant="secondary" disabled={!["waiting", "delayed"].includes(data.status) || action.isPending} onClick={() => action.mutate("cancel")}>Cancel</Button>
           <Button variant="danger" disabled={data.status === "active" || action.isPending} onClick={() => action.mutate("remove")}>Remove</Button>
         </div>
       </div>
-      <div className="grid gap-3 md:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
         {[
           ["Attempts", `${data.attemptsMade}/${data.maxAttempts}`],
           ["Duration", formatDuration(data.durationMs)],
           ["Priority", data.priority],
+          ["Delay", data.delayMs > 0 ? formatDuration(data.delayMs) : "None"],
           ["Backoff", `${data.backoffType} ${data.backoffDelayMs} ms`],
         ].map(([label, value]) => (
           <Card key={label} className="px-4 py-3">

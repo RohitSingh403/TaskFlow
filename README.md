@@ -15,6 +15,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Job submission by session or API key, with priority, delay, timeout, retry, and idempotency keys.
 - A jobs list window. `from` and `to` keep jobs created in that range. Either side can be left open.
 - Run again. Replaying a job queues a new copy with the same handler and payload. The original job stays as it is.
+- Run now. A delayed job moves onto the queue under the same id. The monthly allowance stays where it is.
 - A dead-letter view of jobs that used their attempts, and a bulk retry that puts those same jobs back on their queues.
 - A bulk cancel for waiting and delayed jobs. Active jobs stay. Workflow steps are left for the run that owns them.
 - Recurring schedules. A separate scheduler process creates one normal job per cron tick. Run now queues one job and leaves the next cron time unchanged.
