@@ -66,6 +66,8 @@ export interface ListJobsQuery {
   name?: string;
   jobId?: string;
   q?: string;
+  from?: string;
+  to?: string;
   page?: number;
   limit?: number;
 }
