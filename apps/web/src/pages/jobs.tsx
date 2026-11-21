@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { ApiError, api } from "@/lib/api";
 import { formatDuration, formatWhen, pretty } from "@/lib/format";
 import type { Attempt, Job, Queue } from "@/lib/types";
@@ -125,6 +125,7 @@ export function JobsPage() {
 
 export function JobDetailPage() {
   const { jobId = "" } = useParams();
+  const navigate = useNavigate();
   const projectId = useSession((state) => state.projectId);
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
@@ -151,6 +152,15 @@ export function JobDetailPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Action failed"),
   });
+  const replay = useMutation({
+    mutationFn: () => api<Job>(`/projects/${projectId}/jobs/${jobId}/replay`, { method: "POST" }),
+    onSuccess: (result) => {
+      toast("success", `Queued ${result.data.id}`);
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+      navigate(`/jobs/${result.data.id}`);
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not run the job again"),
+  });
   if (job.isLoading) return <p className="text-[13px] text-muted">Loading job…</p>;
   if (!job.data) return <EmptyState title="Job not found" body="This job is not in the current project." />;
   const data = job.data.data;
@@ -164,8 +174,14 @@ export function JobDetailPage() {
             <JobStatusPill status={data.status} />
           </div>
           <p className="mono mt-1 text-[12px] text-muted">{data.id} · {data.queue} · {data.traceId}</p>
+          {typeof data.metadata.replayedFrom === "string" ? (
+            <p className="mt-1 text-[12px] text-muted">
+              Replayed from <Link className="mono hover:underline" to={`/jobs/${data.metadata.replayedFrom}`}>{data.metadata.replayedFrom}</Link>
+            </p>
+          ) : null}
         </div>
         <div className="flex gap-2">
+          <Button variant="secondary" disabled={replay.isPending || action.isPending} onClick={() => replay.mutate()}>Run again</Button>
           <Button variant="secondary" disabled={data.status !== "failed" || action.isPending} onClick={() => action.mutate("retry")}>Retry</Button>
           <Button variant="secondary" disabled={!["waiting", "delayed"].includes(data.status) || action.isPending} onClick={() => action.mutate("cancel")}>Cancel</Button>
           <Button variant="danger" disabled={data.status === "active" || action.isPending} onClick={() => action.mutate("remove")}>Remove</Button>

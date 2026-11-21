@@ -25,6 +25,8 @@ export interface Job {
   payload: Record<string, unknown>;
   attemptsMade: number;
   maxAttempts: number;
+  delayMs: number;
+  metadata: Record<string, unknown>;
   idempotencyKey: string | null;
   scheduleId?: string | null;
   result: unknown;
