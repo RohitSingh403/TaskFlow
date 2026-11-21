@@ -123,6 +123,7 @@ export function DocsPage() {
     ["POST", "/projects", "Create a project and its default queues"],
     ["POST", "/projects/:id/api-keys", "Create a key, optionally expiring in 1–365 days"],
     ["POST", "/projects/:id/jobs", "Submit a job. Returns before execution."],
+    ["GET", "/projects/:id/jobs", "List jobs, optionally inside a created-at window"],
     ["GET", "/projects/:id/jobs/:jobId", "Read status, result, and error"],
     ["POST", "/projects/:id/jobs/:jobId/retry", "Retry a failed job"],
     ["POST", "/projects/:id/jobs/retry-failed", "Retry up to 50 failed jobs"],

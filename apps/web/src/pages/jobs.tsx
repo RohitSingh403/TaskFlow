@@ -19,11 +19,15 @@ export function JobsPage() {
   const queue = params.get("queue") ?? "";
   const q = params.get("q") ?? "";
   const schedule = params.get("schedule") ?? "";
+  const from = params.get("from") ?? "";
+  const to = params.get("to") ?? "";
   const query = new URLSearchParams({ page: String(page), limit: "20" });
   if (status) query.set("status", status);
   if (queue) query.set("queue", queue);
   if (q) query.set("q", q);
   if (schedule) query.set("schedule", schedule);
+  if (from) query.set("from", from);
+  if (to) query.set("to", to);
   const jobs = useQuery({
     queryKey: ["jobs", projectId, query.toString()],
     enabled: Boolean(projectId),
@@ -59,7 +63,7 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
         </div>
         <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
       </div>
@@ -81,6 +85,29 @@ export function JobsPage() {
             if (event.key === "Enter") update("q", event.currentTarget.value);
           }}
         />
+        <label className="flex h-10 items-center gap-2 rounded-[10px] border border-line bg-bg px-3 text-[13px] text-muted">
+          From
+          <input
+            type="datetime-local"
+            aria-label="Created from"
+            value={isoToLocalInput(from)}
+            onChange={(event) => update("from", localInputToIso(event.target.value))}
+            className="bg-transparent text-ink outline-none"
+          />
+        </label>
+        <label className="flex h-10 items-center gap-2 rounded-[10px] border border-line bg-bg px-3 text-[13px] text-muted">
+          To
+          <input
+            type="datetime-local"
+            aria-label="Created to"
+            value={isoToLocalInput(to)}
+            onChange={(event) => update("to", localInputToIso(event.target.value))}
+            className="bg-transparent text-ink outline-none"
+          />
+        </label>
+        <Button variant="secondary" size="sm" onClick={() => applyCreatedWindow(params, setParams, 24)}>Last 24 hours</Button>
+        <Button variant="secondary" size="sm" onClick={() => applyCreatedWindow(params, setParams, 24 * 7)}>Last 7 days</Button>
+        <Button variant="secondary" size="sm" onClick={() => applyCreatedWindow(params, setParams, null)}>All time</Button>
       </div>
       <Card>
         {jobs.isLoading ? <p className="p-4 text-[13px] text-muted">Loading jobs…</p> : <JobTable jobs={jobs.data?.data ?? []} />}
@@ -181,6 +208,29 @@ export function JobDetailPage() {
       </Card>
     </div>
   );
+}
+
+function applyCreatedWindow(params: URLSearchParams, setParams: (next: URLSearchParams) => void, hours: number | null) {
+  const next = new URLSearchParams(params);
+  next.delete("page");
+  next.delete("to");
+  if (hours === null) next.delete("from");
+  else next.set("from", new Date(Date.now() - hours * 60 * 60 * 1000).toISOString());
+  setParams(next);
+}
+
+function isoToLocalInput(iso: string) {
+  if (!iso) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function localInputToIso(value: string) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
 function JsonCard({ title, value, danger = false }: { title: string; value: unknown; danger?: boolean }) {

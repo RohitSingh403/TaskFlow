@@ -119,19 +119,24 @@ export const cancelQueuedJobsSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
-export const listJobsQuerySchema = z.object({
-  status: z.enum(["waiting", "delayed", "active", "completed", "failed", "cancelled"]).optional(),
-  queue: z.string().trim().max(80).optional(),
-  priority: z.enum(PRIORITY_LABELS).optional(),
-  name: z.string().trim().max(80).optional(),
-  jobId: z.string().trim().max(80).optional(),
-  schedule: z.string().trim().max(80).optional(),
-  q: z.string().trim().max(120).optional(),
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-});
+export const listJobsQuerySchema = z
+  .object({
+    status: z.enum(["waiting", "delayed", "active", "completed", "failed", "cancelled"]).optional(),
+    queue: z.string().trim().max(80).optional(),
+    priority: z.enum(PRIORITY_LABELS).optional(),
+    name: z.string().trim().max(80).optional(),
+    jobId: z.string().trim().max(80).optional(),
+    schedule: z.string().trim().max(80).optional(),
+    q: z.string().trim().max(120).optional(),
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+  })
+  .refine((query) => !query.from || !query.to || Date.parse(query.from) <= Date.parse(query.to), {
+    message: "The start of the window is after the end",
+    path: ["from"],
+  });
 
 export const analyticsQuerySchema = z.object({
   range: z.enum(["24h", "7d", "30d"]).optional(),
