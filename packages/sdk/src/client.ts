@@ -226,6 +226,8 @@ export class TaskFlow {
     rotate: async (webhookId: string) => this.request<WebhookEndpoint & { secret: string }>("POST", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/rotate`)),
     delete: async (webhookId: string) => this.request<{ deleted: boolean }>("DELETE", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}`)),
     deliveries: async (webhookId: string) => this.request<WebhookDelivery[]>("GET", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/deliveries`)),
+    redeliver: async (webhookId: string, deliveryId: string) =>
+      this.request<WebhookDelivery>("POST", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/deliveries/${encodeURIComponent(deliveryId)}/redeliver`)),
   };
 
   readonly billing = {

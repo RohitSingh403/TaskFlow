@@ -9,7 +9,7 @@ import {
   type ProjectEnvironment,
   type WebhookEvent,
 } from "@taskflow/shared";
-import { enqueueJob } from "./bull.js";
+import { enqueueJob, getBullQueue } from "./bull.js";
 import { createId, isDuplicateKeyError, randomToken } from "./ids.js";
 import { logger } from "./logger.js";
 import { Project, Webhook, WebhookDelivery, type WebhookDeliveryDoc, type WebhookDoc } from "./models.js";
@@ -18,6 +18,13 @@ export class WebhookUrlError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "WebhookUrlError";
+  }
+}
+
+export class WebhookDeliveryError extends Error {
+  constructor(public code: "DELIVERY_PENDING" | "WEBHOOK_DISABLED") {
+    super(code);
+    this.name = "WebhookDeliveryError";
   }
 }
 
@@ -103,6 +110,27 @@ export async function dispatchWebhooks(input: WebhookDispatch) {
       logger.error({ err: error, webhookId: hook.publicId, event: input.event }, "Failed to record a webhook delivery");
     }
   }
+}
+
+export async function requeueWebhookDelivery(delivery: WebhookDeliveryDoc) {
+  if (delivery.status === "pending") throw new WebhookDeliveryError("DELIVERY_PENDING");
+  const hook = await Webhook.findById(delivery.webhookId);
+  if (!hook || hook.deletedAt || !hook.enabled) throw new WebhookDeliveryError("WEBHOOK_DISABLED");
+  const queue = getBullQueue(WEBHOOK_QUEUE);
+  const existing = await queue.getJob(delivery.publicId);
+  if (existing) {
+    const state = await existing.getState();
+    if (state === "active") throw new WebhookDeliveryError("DELIVERY_PENDING");
+    await existing.remove();
+  }
+  await WebhookDelivery.updateOne(
+    { _id: delivery._id },
+    { $set: { status: "pending", enqueued: false }, $unset: { completedAt: 1 } },
+  );
+  const fresh = await WebhookDelivery.findById(delivery._id);
+  if (!fresh) throw new WebhookDeliveryError("DELIVERY_PENDING");
+  await placeDelivery(fresh);
+  return fresh;
 }
 
 async function placeDelivery(delivery: WebhookDeliveryDoc) {
