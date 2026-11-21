@@ -7,7 +7,7 @@ import type { Attempt, Job, Queue } from "@/lib/types";
 import { useSession, useUi } from "@/stores/session";
 import { JobTable } from "./dashboard";
 import { JobStatusPill } from "@/components/status";
-import { Button, Card, EmptyState, SelectInput } from "@/components/ui";
+import { Button, Card, EmptyState, SelectInput, TextInput } from "@/components/ui";
 
 export function JobsPage() {
   const projectId = useSession((state) => state.projectId);
@@ -63,7 +63,7 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. Run now moves a delayed job onto the queue. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. Run now moves a delayed job onto the queue. Reschedule sets a new delay on a waiting or delayed job. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
         </div>
         <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
       </div>
@@ -170,6 +170,20 @@ export function JobDetailPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not run the job now"),
   });
+  const [nextDelay, setNextDelay] = useState("");
+  const reschedule = useMutation({
+    mutationFn: () => api<Job>(`/projects/${projectId}/jobs/${jobId}/reschedule`, {
+      method: "POST",
+      body: JSON.stringify({ delayMs: Number(nextDelay) }),
+    }),
+    onSuccess: (result) => {
+      toast("success", result.data.delayMs > 0 ? "Delay updated" : "Delay cleared");
+      setNextDelay("");
+      void client.invalidateQueries({ queryKey: ["job", projectId, jobId] });
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not reschedule the job"),
+  });
   if (job.isLoading) return <p className="text-[13px] text-muted">Loading job…</p>;
   if (!job.data) return <EmptyState title="Job not found" body="This job is not in the current project." />;
   const data = job.data.data;
@@ -197,6 +211,28 @@ export function JobDetailPage() {
           <Button variant="danger" disabled={data.status === "active" || action.isPending} onClick={() => action.mutate("remove")}>Remove</Button>
         </div>
       </div>
+      {["waiting", "delayed"].includes(data.status) ? (
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            reschedule.mutate();
+          }}
+        >
+          <label className="text-[13px] text-muted">
+            New delay (ms)
+            <TextInput
+              className="mt-1.5 w-40"
+              inputMode="numeric"
+              aria-label="New delay (ms)"
+              value={nextDelay}
+              onChange={(event) => setNextDelay(event.target.value)}
+              placeholder="60000"
+            />
+          </label>
+          <Button type="submit" variant="secondary" disabled={nextDelay.trim() === "" || reschedule.isPending}>Reschedule</Button>
+        </form>
+      ) : null}
       <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-5">
         {[
           ["Attempts", `${data.attemptsMade}/${data.maxAttempts}`],

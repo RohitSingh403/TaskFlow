@@ -383,6 +383,59 @@ export async function promoteJob(project: ProjectDoc, jobId: string, auth: AuthC
   return job;
 }
 
+export async function rescheduleJob(project: ProjectDoc, jobId: string, input: { delayMs: number }, auth: AuthContext) {
+  const job = await getJob(project, jobId);
+  if (!["waiting", "delayed"].includes(job.status)) {
+    throw new AppError(409, "JOB_NOT_QUEUED", "Only a waiting or delayed job can be rescheduled");
+  }
+  const previousDelayMs = job.delayMs;
+  const nextStatus = input.delayMs > 0 ? "delayed" : "waiting";
+  const bullJob = await getBullQueue(job.bullQueueName).getJob(job.publicId);
+  let replaced = false;
+  if (bullJob) {
+    const state = await bullJob.getState();
+    if (state === "active") throw new AppError(409, "JOB_NOT_QUEUED", "An active job cannot be rescheduled");
+    if (!["waiting", "delayed", "prioritized", "paused"].includes(state)) {
+      throw new AppError(409, "JOB_NOT_QUEUED", "Only a waiting or delayed job can be rescheduled");
+    }
+    if (state === "delayed" && input.delayMs > 0) {
+      await bullJob.changeDelay(input.delayMs);
+    } else if (state === "delayed" && input.delayMs === 0) {
+      await bullJob.promote();
+    } else if (input.delayMs > 0) {
+      if (job.workflowRunId) {
+        throw new AppError(409, "WORKFLOW_JOB", "A workflow step that is already waiting stays on its run");
+      }
+      await bullJob.remove();
+      job.delayMs = input.delayMs;
+      job.status = nextStatus;
+      await placeOnQueue(job);
+      replaced = true;
+    }
+  }
+  if (!replaced) {
+    job.delayMs = input.delayMs;
+    job.status = nextStatus;
+    if (bullJob) await job.save();
+    else await placeOnQueue(job);
+  }
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "job.rescheduled",
+    targetType: "job",
+    targetId: job.publicId,
+    metadata: { delayMs: input.delayMs, previousDelayMs },
+  });
+  await publish({
+    type: "job.updated",
+    projectId: project.publicId,
+    data: { jobId: job.publicId, status: job.status, queue: job.queueName },
+  });
+  return job;
+}
+
 export async function retryFailedJobs(
   project: ProjectDoc,
   input: { queue?: string; limit?: number },

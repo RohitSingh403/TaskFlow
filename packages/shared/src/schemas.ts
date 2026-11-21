@@ -119,6 +119,10 @@ export const cancelQueuedJobsSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const rescheduleJobSchema = z.object({
+  delayMs: z.number().int().min(0).max(30 * 24 * 60 * 60 * 1000),
+});
+
 export const listJobsQuerySchema = z
   .object({
     status: z.enum(["waiting", "delayed", "active", "completed", "failed", "cancelled"]).optional(),

@@ -1,4 +1,4 @@
-import { cancelQueuedJobsSchema, listJobsQuerySchema, retryFailedJobsSchema, submitJobSchema } from "@taskflow/shared";
+import { cancelQueuedJobsSchema, listJobsQuerySchema, rescheduleJobSchema, retryFailedJobsSchema, submitJobSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toJob } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -6,7 +6,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, readQuery, requireScope, validateBody, validateQuery } from "../../middleware/common.js";
 import { loadProject } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { cancelJob, cancelQueuedJobs, getJob, listAttempts, listJobs, promoteJob, removeJob, replayJob, retryFailedJobs, retryJob, submitJob } from "./jobs.service.js";
+import { cancelJob, cancelQueuedJobs, getJob, listAttempts, listJobs, promoteJob, removeJob, replayJob, rescheduleJob, retryFailedJobs, retryJob, submitJob } from "./jobs.service.js";
 import type { JobListQuery } from "./jobs.service.js";
 
 export const jobRouter = Router({ mergeParams: true });
@@ -105,6 +105,16 @@ jobRouter.post(
   requireScope("jobs:write"),
   asyncHandler(async (req, res) => {
     sendOk(res, toJob(await promoteJob(req.project!, String(req.params.jobId), req.auth!)));
+  }),
+);
+
+jobRouter.post(
+  "/:jobId/reschedule",
+  writeLimiter,
+  requireScope("jobs:write"),
+  validateBody(rescheduleJobSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, toJob(await rescheduleJob(req.project!, String(req.params.jobId), req.body, req.auth!)));
   }),
 );
 

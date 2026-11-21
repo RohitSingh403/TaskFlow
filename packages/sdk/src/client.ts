@@ -160,6 +160,8 @@ export class TaskFlow {
     retry: async (jobId: string) => this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/retry`)),
     replay: async (jobId: string) => this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/replay`)),
     promote: async (jobId: string) => this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/promote`)),
+    reschedule: async (jobId: string, input: { delayMs: number }) =>
+      this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/reschedule`), { body: input }),
     retryFailed: async (input: { queue?: string; limit?: number } = {}) =>
       this.request<{ retried: number; skipped: number; jobIds: string[] }>("POST", await this.projectPath("/jobs/retry-failed"), { body: input }),
     cancelQueued: async (input: { queue?: string; limit?: number } = {}) =>
