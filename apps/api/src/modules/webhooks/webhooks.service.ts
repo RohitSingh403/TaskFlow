@@ -7,6 +7,7 @@ import {
   assertWebhookUrl,
   createId,
   createWebhookSecret,
+  queueWebhookTest,
   requeueWebhookDelivery,
   type ProjectDoc,
   type WebhookDeliveryDoc,
@@ -114,6 +115,29 @@ export async function rotateWebhookSecret(project: ProjectDoc, webhookId: string
     metadata: {},
   });
   return { webhook, secret: signing.secret };
+}
+
+export async function sendTestWebhook(project: ProjectDoc, webhookId: string, auth: AuthContext) {
+  const webhook = await Webhook.findOne({ projectId: project._id, publicId: webhookId, deletedAt: null }) as WebhookDoc | null;
+  if (!webhook) throw new AppError(404, "WEBHOOK_NOT_FOUND", "Webhook not found");
+  try {
+    const delivery = await queueWebhookTest(webhook);
+    await AuditLog.create({
+      projectId: project._id,
+      actorType: auth.type,
+      actorId: auth.userPublicId,
+      action: "webhook.tested",
+      targetType: "webhook_delivery",
+      targetId: delivery.publicId,
+      metadata: { webhookId: webhook.publicId },
+    });
+    return delivery;
+  } catch (error) {
+    if (error instanceof WebhookDeliveryError && error.code === "WEBHOOK_DISABLED") {
+      throw new AppError(409, "WEBHOOK_DISABLED", "The webhook endpoint is disabled");
+    }
+    throw error;
+  }
 }
 
 export async function deleteWebhook(project: ProjectDoc, webhookId: string, auth: AuthContext) {
