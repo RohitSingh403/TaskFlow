@@ -16,6 +16,7 @@ export async function evaluateAlerts(now = new Date()): Promise<FiredAlert[]> {
   const rules = await AlertRule.find({ enabled: true, deletedAt: null }).sort({ lastTriggeredAt: 1 }).limit(50);
   const fired: FiredAlert[] = [];
   for (const rule of rules) {
+    if (rule.silencedUntil && rule.silencedUntil.getTime() > now.getTime()) continue;
     if (rule.lastTriggeredAt && now.getTime() - rule.lastTriggeredAt.getTime() < rule.cooldownMs) continue;
     const finding = await inspectRule(rule, now);
     if (!finding) {
@@ -35,7 +36,10 @@ export async function evaluateAlerts(now = new Date()): Promise<FiredAlert[]> {
         _id: rule._id,
         enabled: true,
         deletedAt: null,
-        $or: [{ lastTriggeredAt: null }, { lastTriggeredAt: { $lte: new Date(now.getTime() - rule.cooldownMs) } }],
+        $and: [
+          { $or: [{ lastTriggeredAt: null }, { lastTriggeredAt: { $lte: new Date(now.getTime() - rule.cooldownMs) } }] },
+          { $or: [{ silencedUntil: null }, { silencedUntil: { $exists: false } }, { silencedUntil: { $lte: now } }] },
+        ],
       },
       { $set: { lastTriggeredAt: now, lastError: "" } },
     );

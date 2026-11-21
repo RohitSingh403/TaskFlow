@@ -160,3 +160,37 @@ export async function resolveAlert(project: ProjectDoc, alertId: string, auth: A
   });
   return alert;
 }
+
+export async function silenceAlertRule(project: ProjectDoc, ruleId: string, durationMs: number, auth: AuthContext, now = new Date()) {
+  const rule = await AlertRule.findOne({ projectId: project._id, publicId: ruleId, deletedAt: null }) as AlertRuleDoc | null;
+  if (!rule) throw new AppError(404, "ALERT_NOT_FOUND", "Alert rule not found");
+  rule.silencedUntil = new Date(now.getTime() + durationMs);
+  await rule.save();
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "alert_rule.silenced",
+    targetType: "alert_rule",
+    targetId: rule.publicId,
+    metadata: { until: rule.silencedUntil.toISOString(), durationMs },
+  });
+  return rule;
+}
+
+export async function unsilenceAlertRule(project: ProjectDoc, ruleId: string, auth: AuthContext) {
+  const rule = await AlertRule.findOne({ projectId: project._id, publicId: ruleId, deletedAt: null }) as AlertRuleDoc | null;
+  if (!rule) throw new AppError(404, "ALERT_NOT_FOUND", "Alert rule not found");
+  rule.silencedUntil = null;
+  await rule.save();
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "alert_rule.unsilenced",
+    targetType: "alert_rule",
+    targetId: rule.publicId,
+    metadata: {},
+  });
+  return rule;
+}

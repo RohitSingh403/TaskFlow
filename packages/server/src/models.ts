@@ -403,6 +403,7 @@ const alertRuleSchema = new Schema(
     windowMs: { type: Number },
     minSamples: { type: Number },
     cooldownMs: { type: Number, required: true },
+    silencedUntil: { type: Date },
     lastTriggeredAt: { type: Date },
     lastError: { type: String, default: "" },
     deletedAt: { type: Date },
