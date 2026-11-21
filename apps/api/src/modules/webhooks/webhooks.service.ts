@@ -2,10 +2,12 @@ import {
   AuditLog,
   Webhook,
   WebhookDelivery,
+  WebhookDeliveryError,
   WebhookUrlError,
   assertWebhookUrl,
   createId,
   createWebhookSecret,
+  requeueWebhookDelivery,
   type ProjectDoc,
   type WebhookDeliveryDoc,
   type WebhookDoc,
@@ -129,6 +131,34 @@ export async function deleteWebhook(project: ProjectDoc, webhookId: string, auth
     targetId: webhook.publicId,
     metadata: {},
   });
+}
+
+export async function redeliverWebhook(project: ProjectDoc, webhookId: string, deliveryId: string, auth: AuthContext) {
+  const webhook = await Webhook.findOne({ projectId: project._id, publicId: webhookId, deletedAt: null });
+  if (!webhook) throw new AppError(404, "WEBHOOK_NOT_FOUND", "Webhook not found");
+  const delivery = await WebhookDelivery.findOne({ projectId: project._id, webhookId: webhook._id, publicId: deliveryId });
+  if (!delivery) throw new AppError(404, "DELIVERY_NOT_FOUND", "Webhook delivery not found");
+  try {
+    const queued = await requeueWebhookDelivery(delivery);
+    await AuditLog.create({
+      projectId: project._id,
+      actorType: auth.type,
+      actorId: auth.userPublicId,
+      action: "webhook.redelivered",
+      targetType: "webhook_delivery",
+      targetId: queued.publicId,
+      metadata: { webhookId: webhook.publicId },
+    });
+    return queued;
+  } catch (error) {
+    if (error instanceof WebhookDeliveryError && error.code === "WEBHOOK_DISABLED") {
+      throw new AppError(409, "WEBHOOK_DISABLED", "The webhook endpoint is disabled");
+    }
+    if (error instanceof WebhookDeliveryError) {
+      throw new AppError(409, "DELIVERY_PENDING", "This delivery is already in progress");
+    }
+    throw error;
+  }
 }
 
 export async function listWebhookDeliveries(project: ProjectDoc, webhookId?: string) {

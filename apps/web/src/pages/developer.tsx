@@ -137,6 +137,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/alerts/rules", "Create a backlog, failure, offline, or long-running alert"],
     ["POST", "/projects/:id/alerts/:alertId/resolve", "Mark an alert resolved"],
     ["POST", "/projects/:id/webhooks", "Register a signed outbound endpoint"],
+    ["POST", "/projects/:id/webhooks/:webhookId/deliveries/:deliveryId/redeliver", "Queue the same delivery again"],
     ["POST", "/projects/:id/members", "Add an existing account to the project"],
     ["POST", "/projects/:id/members/transfer", "Make a member the project owner"],
     ["GET", "/projects/:id/billing", "Read this month's job allowance"],

@@ -11,6 +11,7 @@ import {
   deleteWebhook,
   listWebhookDeliveries,
   listWebhooks,
+  redeliverWebhook,
   rotateWebhookSecret,
   updateWebhook,
 } from "./webhooks.service.js";
@@ -69,6 +70,16 @@ webhookRouter.delete(
   asyncHandler(async (req, res) => {
     await deleteWebhook(req.project!, String(req.params.webhookId), req.auth!);
     sendOk(res, { deleted: true });
+  }),
+);
+
+webhookRouter.post(
+  "/:webhookId/deliveries/:deliveryId/redeliver",
+  writeLimiter,
+  requireScope("jobs:write"),
+  asyncHandler(async (req, res) => {
+    const delivery = await redeliverWebhook(req.project!, String(req.params.webhookId), String(req.params.deliveryId), req.auth!);
+    sendOk(res, toWebhookDelivery(delivery));
   }),
 );
 

@@ -33,6 +33,14 @@ export function WebhooksPage() {
     onSuccess: () => void client.invalidateQueries({ queryKey: ["webhooks", projectId] }),
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not update the webhook"),
   });
+  const redeliver = useMutation({
+    mutationFn: (delivery: WebhookDelivery) => api<WebhookDelivery>(`/projects/${projectId}/webhooks/${delivery.webhookId}/deliveries/${delivery.id}/redeliver`, { method: "POST" }),
+    onSuccess: () => {
+      toast("success", "Delivery queued");
+      void client.invalidateQueries({ queryKey: ["webhooks", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not send the delivery again"),
+  });
   const remove = useMutation({
     mutationFn: (hookId: string) => api(`/projects/${projectId}/webhooks/${hookId}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -51,7 +59,7 @@ export function WebhooksPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Webhooks</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Receivers should ignore a delivery id they have already handled.
+            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Send again queues that same delivery id. Receivers should ignore a delivery id they have already handled.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New webhook</Button>
@@ -103,6 +111,7 @@ export function WebhooksPage() {
                 <th className="px-4 py-3 font-medium">Resource</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Attempts</th>
+                <th className="px-4 py-3 font-medium" />
               </tr>
             </thead>
             <tbody>
@@ -113,6 +122,11 @@ export function WebhooksPage() {
                   <td className="mono px-4 py-3 text-[12px]">{delivery.resourceId}</td>
                   <td className="px-4 py-3 capitalize">{delivery.status}</td>
                   <td className="px-4 py-3 text-muted">{delivery.attempts.length}</td>
+                  <td className="px-4 py-3 text-right">
+                    {delivery.status === "pending" ? null : (
+                      <Button size="sm" variant="secondary" loading={redeliver.isPending} onClick={() => redeliver.mutate(delivery)}>Send again</Button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
