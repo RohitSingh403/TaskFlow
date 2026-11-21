@@ -78,7 +78,7 @@ A job that has used its attempts stays `failed` on the same queue. `POST /projec
 
 `cron` is five fields: minute, hour, day of month, month, weekday. `POST /pause` stops future occurrences. `POST /resume` moves `nextRunAt` forward when the stored time is already past, so a resume does not fire a missed tick immediately. Deleting a schedule is soft. Jobs already created keep running.
 
-The scheduler process is the only producer. If it is down for more than a minute, missed ticks are skipped.
+`POST /projects/:projectId/schedules/:scheduleId/run` queues one job immediately. It does not change `nextRunAt`. A paused schedule can still be run. The job counts toward the monthly allowance. A second call creates another job. If the scheduler is down for more than a minute, missed cron ticks are still skipped.
 
 ## Workflows
 

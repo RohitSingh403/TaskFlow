@@ -26,6 +26,7 @@ export interface Job {
   attemptsMade: number;
   maxAttempts: number;
   idempotencyKey: string | null;
+  scheduleId?: string | null;
   result: unknown;
   error: { message: string; stack: string | null; code: string | null } | null;
   createdAt?: string;

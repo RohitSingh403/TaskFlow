@@ -1,7 +1,9 @@
 import {
   AuditLog,
   CronError,
+  PlanLimitError,
   QueueConfig,
+  runScheduleNow,
   Schedule,
   createId,
   nextCronOccurrence,
@@ -20,6 +22,7 @@ import {
   type PriorityLabel,
 } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
+import { publish } from "../../infrastructure.js";
 import { zodDetails } from "../../middleware/common.js";
 import type { AuthContext } from "../../types.js";
 
@@ -193,6 +196,35 @@ export async function setSchedulePaused(project: ProjectDoc, schedule: ScheduleD
     metadata: {},
   });
   return schedule;
+}
+
+export async function triggerSchedule(project: ProjectDoc, schedule: ScheduleDoc, auth: AuthContext) {
+  let job;
+  try {
+    job = await runScheduleNow(schedule);
+  } catch (error) {
+    if (error instanceof PlanLimitError) throw new AppError(402, "PLAN_LIMIT", error.message);
+    if (error instanceof CronError) {
+      const full = error.message.includes("waiting-job limit");
+      throw new AppError(full ? 429 : 400, full ? "QUEUE_BACKPRESSURE" : "SCHEDULE_RUN_FAILED", error.message);
+    }
+    throw error;
+  }
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "schedule.triggered",
+    targetType: "schedule",
+    targetId: schedule.publicId,
+    metadata: { jobId: job.publicId },
+  });
+  await publish({
+    type: "job.updated",
+    projectId: project.publicId,
+    data: { jobId: job.publicId, status: job.status, queue: job.queueName },
+  });
+  return job;
 }
 
 export async function deleteSchedule(project: ProjectDoc, schedule: ScheduleDoc, auth: AuthContext) {

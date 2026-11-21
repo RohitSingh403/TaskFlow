@@ -14,7 +14,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Job submission by session or API key, with priority, delay, timeout, retry, and idempotency keys.
 - A dead-letter view of jobs that used their attempts, and a bulk retry that puts those same jobs back on their queues.
 - A bulk cancel for waiting and delayed jobs. Active jobs stay. Workflow steps are left for the run that owns them.
-- Recurring schedules. A separate scheduler process creates one normal job per cron tick.
+- Recurring schedules. A separate scheduler process creates one normal job per cron tick. Run now queues one job and leaves the next cron time unchanged.
 - Workflows. A run is a tree of normal jobs. Children finish before the parent that waits on them.
 - Alert rules for queue backlog, failure rate, offline workers, and long-running jobs. The scheduler opens an in-app alert and then waits out a cooldown.
 - Signed outbound webhooks for job completion, failure, cancellation, and fired alerts. Delivery is at least once from the worker.

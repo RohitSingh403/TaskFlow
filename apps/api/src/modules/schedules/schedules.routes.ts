@@ -1,12 +1,12 @@
 import { scheduleSchema, updateScheduleSchema } from "@taskflow/shared";
 import { Router } from "express";
-import { toSchedule } from "../../dto.js";
+import { toJob, toSchedule } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, requireScope, validateBody } from "../../middleware/common.js";
 import { loadProject } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { createSchedule, deleteSchedule, getSchedule, listSchedules, setSchedulePaused, updateSchedule } from "./schedules.service.js";
+import { createSchedule, deleteSchedule, getSchedule, listSchedules, setSchedulePaused, triggerSchedule, updateSchedule } from "./schedules.service.js";
 
 export const scheduleRouter = Router({ mergeParams: true });
 
@@ -47,6 +47,17 @@ scheduleRouter.patch(
   asyncHandler(async (req, res) => {
     const schedule = await getSchedule(req.project!, String(req.params.scheduleId));
     sendOk(res, toSchedule(await updateSchedule(req.project!, schedule, req.body, req.auth!)));
+  }),
+);
+
+scheduleRouter.post(
+  "/:scheduleId/run",
+  writeLimiter,
+  requireScope("jobs:write"),
+  asyncHandler(async (req, res) => {
+    const schedule = await getSchedule(req.project!, String(req.params.scheduleId));
+    const job = await triggerSchedule(req.project!, schedule, req.auth!);
+    sendCreated(res, toJob(job));
   }),
 );
 
