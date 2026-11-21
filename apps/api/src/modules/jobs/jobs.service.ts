@@ -436,6 +436,47 @@ export async function rescheduleJob(project: ProjectDoc, jobId: string, input: {
   return job;
 }
 
+export async function updateJobPriority(
+  project: ProjectDoc,
+  jobId: string,
+  input: { priority: PriorityLabel },
+  auth: AuthContext,
+) {
+  const job = await getJob(project, jobId);
+  if (!["waiting", "delayed"].includes(job.status)) {
+    throw new AppError(409, "JOB_NOT_QUEUED", "Only a waiting or delayed job can change priority");
+  }
+  const previous = job.priority;
+  const bullJob = await getBullQueue(job.bullQueueName).getJob(job.publicId);
+  if (bullJob) {
+    const state = await bullJob.getState();
+    if (state === "active") throw new AppError(409, "JOB_NOT_QUEUED", "An active job cannot change priority");
+    if (!["waiting", "delayed", "prioritized", "paused"].includes(state)) {
+      throw new AppError(409, "JOB_NOT_QUEUED", "Only a waiting or delayed job can change priority");
+    }
+    await bullJob.changePriority({ priority: priorityToBull(input.priority) });
+  }
+  job.priority = input.priority;
+  job.priorityValue = priorityToBull(input.priority);
+  if (bullJob) await job.save();
+  else await placeOnQueue(job);
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: "job.priority_changed",
+    targetType: "job",
+    targetId: job.publicId,
+    metadata: { priority: input.priority, previous },
+  });
+  await publish({
+    type: "job.updated",
+    projectId: project.publicId,
+    data: { jobId: job.publicId, status: job.status, queue: job.queueName },
+  });
+  return job;
+}
+
 export async function retryFailedJobs(
   project: ProjectDoc,
   input: { queue?: string; limit?: number },

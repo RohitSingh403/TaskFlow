@@ -61,6 +61,8 @@ A job that has used its attempts stays `failed` on the same queue. `POST /projec
 
 `POST /projects/:projectId/jobs/:jobId/reschedule` with `{ "delayMs": 60000 }` sets a new delay on a waiting or delayed job. The delay is measured from now and can be 0 through 30 days. The same job id stays, along with its idempotency key, schedule, and workflow run. This does not count toward the monthly allowance. `delayMs: 0` clears the delay. An active, completed, failed, or cancelled job returns `409` `JOB_NOT_QUEUED`. A workflow step that is already waiting returns `409` `WORKFLOW_JOB`, because moving it would leave its run. A delayed workflow step can still take a new delay.
 
+`POST /projects/:projectId/jobs/:jobId/priority` with `{ "priority": "high" }` changes the priority of a waiting or delayed job. `high`, `medium`, and `low` are the same labels used at submission. The same job id stays, along with its delay, idempotency key, schedule, and workflow run. This does not count toward the monthly allowance. An active, completed, failed, or cancelled job returns `409` `JOB_NOT_QUEUED`. Sending the priority the job already has leaves that job as it is.
+
 `_simulate` is allowed only when the project environment is `development`:
 
 ```json
