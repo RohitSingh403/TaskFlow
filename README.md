@@ -18,7 +18,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Run now. A delayed job moves onto the queue under the same id. The monthly allowance stays where it is. Run delayed does that for the oldest delayed jobs, up to 50, and keeps each job id.
 - Reschedule. A waiting or delayed job can take a new delay, up to 30 days. The same job id stays, and the monthly allowance does not change.
 - Update priority. A waiting or delayed job can move between high, medium, and low. The same job id stays, and the monthly allowance does not change. Set priority does that for the oldest waiting and delayed jobs, up to 50. A job that already has that priority is left alone.
-- Move. A waiting or delayed job can move to another queue in the same project. A workflow step stays on the queue that owns its run. The monthly allowance does not change.
+- Move. A waiting or delayed job can move to another queue in the same project. A workflow step stays on the queue that owns its run. The monthly allowance does not change. Move queued does that for the oldest waiting and delayed jobs, up to 50, and keeps each job id.
 - A dead-letter view of jobs that used their attempts, and a bulk retry that puts those same jobs back on their queues. Dismiss takes a failed job off that list and leaves it failed. Dismiss failed does that for the oldest jobs still listed, up to 50. Restore dismissed puts the oldest of those jobs back on the list, up to 50. They stay failed. Bulk retry skips dismissed jobs.
 - A bulk cancel for waiting and delayed jobs. Active jobs stay. Workflow steps are left for the run that owns them.
 - Recurring schedules. A separate scheduler process creates one normal job per cron tick. Editing a schedule keeps its id. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time unchanged.
@@ -159,6 +159,7 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | POST | `/projects/:id/jobs` | Submit a job |
 | POST | `/projects/:id/jobs/promote-delayed` | Run up to 50 delayed jobs now and keep their ids |
 | POST | `/projects/:id/jobs/priority` | Change the priority of up to 50 waiting or delayed jobs |
+| POST | `/projects/:id/jobs/move` | Move up to 50 waiting or delayed jobs to another queue |
 | POST | `/projects/:id/jobs/:jobId/dismiss` | Take a failed job off the dead letter list |
 | POST | `/projects/:id/jobs/dismiss-failed` | Take up to 50 failed jobs off the dead letter list |
 | POST | `/projects/:id/jobs/restore-dismissed` | Put up to 50 dismissed jobs back on the dead letter list |
