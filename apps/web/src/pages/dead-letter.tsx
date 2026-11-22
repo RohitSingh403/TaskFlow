@@ -54,6 +54,17 @@ export function DeadLetterPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not dismiss failed jobs"),
   });
+  const restoreDismissed = useMutation({
+    mutationFn: () => api<{ restored: number }>(`/projects/${projectId}/jobs/restore-dismissed`, {
+      method: "POST",
+      body: JSON.stringify(queue ? { queue, limit: 20 } : { limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      toast("success", result.data.restored === 1 ? "Restored 1 job" : `Restored ${result.data.restored} jobs`);
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not restore dismissed jobs"),
+  });
   const restore = useMutation({
     mutationFn: (jobId: string) => api<Job>(`/projects/${projectId}/jobs/${jobId}/restore`, { method: "POST" }),
     onSuccess: () => {
@@ -71,10 +82,14 @@ export function DeadLetterPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Dead letter</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            These jobs used their attempts and stayed on the original queue. Retry runs the same job again. It does not create a second one. Dismiss takes a failed job off this list and leaves it failed. Dismiss failed does that for the oldest jobs still listed, up to 20. Restore puts one back. Retry failed skips dismissed jobs.
+            These jobs used their attempts and stayed on the original queue. Retry runs the same job again. It does not create a second one. Dismiss takes a failed job off this list and leaves it failed. Dismiss failed does that for the oldest jobs still listed, up to 20. Restore dismissed puts the oldest of those jobs back, up to 20. They stay failed. Retry failed skips dismissed jobs.
           </p>
         </div>
-        {dismissed ? null : (
+        {dismissed ? (
+          <Button variant="secondary" disabled={rows.length === 0 || restoreDismissed.isPending} loading={restoreDismissed.isPending} onClick={() => restoreDismissed.mutate()}>
+            Restore dismissed
+          </Button>
+        ) : (
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" disabled={rows.length === 0 || dismissFailed.isPending} loading={dismissFailed.isPending} onClick={() => dismissFailed.mutate()}>
               Dismiss failed

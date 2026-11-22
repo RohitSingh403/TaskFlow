@@ -631,6 +631,39 @@ export async function restoreJob(project: ProjectDoc, jobId: string, auth: AuthC
   return job;
 }
 
+export async function restoreDismissedJobs(
+  project: ProjectDoc,
+  input: { queue?: string; limit?: number },
+  auth: AuthContext,
+) {
+  if (input.queue) {
+    const queue = await QueueConfig.findOne({ projectId: project._id, name: input.queue, deletedAt: null });
+    if (!queue) throw new AppError(404, "QUEUE_NOT_FOUND", "Queue not found");
+  }
+  const limit = Math.min(input.limit ?? 20, DEAD_LETTER_RETRY_LIMIT);
+  const dismissed = await JobRecord.find({
+    projectId: project._id,
+    status: "failed",
+    dismissedAt: { $ne: null },
+    ...(input.queue ? { queueName: input.queue } : {}),
+  }).sort({ dismissedAt: 1 }).limit(limit);
+  const jobIds: string[] = [];
+  let skipped = 0;
+  for (const record of dismissed) {
+    try {
+      await restoreJob(project, record.publicId, auth);
+      jobIds.push(record.publicId);
+    } catch (error) {
+      if (error instanceof AppError && error.status === 409) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { restored: jobIds.length, skipped, jobIds };
+}
+
 export async function cancelQueuedJobs(
   project: ProjectDoc,
   input: { queue?: string; limit?: number },
