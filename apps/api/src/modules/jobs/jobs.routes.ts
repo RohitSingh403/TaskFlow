@@ -1,4 +1,4 @@
-import { cancelQueuedJobsSchema, dismissFailedJobsSchema, listJobsQuerySchema, moveJobSchema, rescheduleJobSchema, retryFailedJobsSchema, submitJobSchema, updateJobPrioritySchema } from "@taskflow/shared";
+import { cancelQueuedJobsSchema, dismissFailedJobsSchema, listJobsQuerySchema, moveJobSchema, rescheduleJobSchema, restoreDismissedJobsSchema, retryFailedJobsSchema, submitJobSchema, updateJobPrioritySchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toJob } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -6,7 +6,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, readQuery, requireScope, validateBody, validateQuery } from "../../middleware/common.js";
 import { loadProject } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { cancelJob, cancelQueuedJobs, dismissFailedJobs, dismissJob, getJob, listAttempts, listJobs, moveJob, promoteJob, removeJob, replayJob, rescheduleJob, restoreJob, retryFailedJobs, retryJob, submitJob, updateJobPriority } from "./jobs.service.js";
+import { cancelJob, cancelQueuedJobs, dismissFailedJobs, dismissJob, getJob, listAttempts, listJobs, moveJob, promoteJob, removeJob, replayJob, rescheduleJob, restoreDismissedJobs, restoreJob, retryFailedJobs, retryJob, submitJob, updateJobPriority } from "./jobs.service.js";
 import type { JobListQuery } from "./jobs.service.js";
 
 export const jobRouter = Router({ mergeParams: true });
@@ -62,6 +62,16 @@ jobRouter.post(
   validateBody(dismissFailedJobsSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, await dismissFailedJobs(req.project!, req.body, req.auth!));
+  }),
+);
+
+jobRouter.post(
+  "/restore-dismissed",
+  writeLimiter,
+  requireScope("jobs:write"),
+  validateBody(restoreDismissedJobsSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await restoreDismissedJobs(req.project!, req.body, req.auth!));
   }),
 );
 

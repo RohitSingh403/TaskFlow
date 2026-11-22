@@ -126,6 +126,11 @@ export const dismissFailedJobsSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const restoreDismissedJobsSchema = z.object({
+  queue: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const cancelQueuedJobsSchema = z.object({
   queue: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
   limit: z.number().int().min(1).max(50).default(20),
