@@ -39,6 +39,7 @@ export function WorkflowsPage() {
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Workflow | null>(null);
+  const [editingSteps, setEditingSteps] = useState<Workflow | null>(null);
   const [removeId, setRemoveId] = useState<string | null>(null);
   const workflows = useQuery({
     queryKey: ["workflows", projectId],
@@ -64,7 +65,7 @@ export function WorkflowsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Workflows</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. Pause stops new runs and leaves the steps and runs that already started. Cancel removes the steps that are still waiting and keeps the run id.
+            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. Steps replaces the tree for the next run. A run that already started keeps the steps it began with. Pause stops new runs. Cancel removes the steps that are still waiting and keeps the run id.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New workflow</Button>
@@ -101,6 +102,7 @@ export function WorkflowsPage() {
                   <td className="px-4 py-3">{formatDuration(workflow.lastRun?.durationMs)}</td>
                   <td className="px-4 py-3 text-right">
                     <Button variant="ghost" size="sm" onClick={() => setEditing(workflow)}>Edit</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setEditingSteps(workflow)}>Steps</Button>
                     <WorkflowPause workflow={workflow} />
                     <Button variant="ghost" size="sm" onClick={() => setRemoveId(workflow.id)}>Delete</Button>
                   </td>
@@ -112,6 +114,7 @@ export function WorkflowsPage() {
       ) : null}
       {open ? <CreateWorkflow onClose={() => setOpen(false)} /> : null}
       <EditWorkflow workflow={editing} onClose={() => setEditing(null)} />
+      <EditWorkflowSteps workflow={editingSteps} onClose={() => setEditingSteps(null)} />
       <Dialog open={Boolean(removeId)} title="Delete workflow" onClose={() => setRemoveId(null)}>
         <p className="text-[13px] text-muted">Existing runs stay in history. New runs stop being accepted.</p>
         <div className="mt-4 flex justify-end gap-2">
@@ -189,6 +192,179 @@ function EditWorkflow({ workflow, onClose }: { workflow: Workflow | null; onClos
   );
 }
 
+function WorkflowStepFields({
+  steps,
+  handlers,
+  queues,
+  onChange,
+}: {
+  steps: DraftStep[];
+  handlers: HandlerInfo[];
+  queues: Queue[];
+  onChange: (steps: DraftStep[]) => void;
+}) {
+  function update(index: number, patch: Partial<DraftStep>) {
+    onChange(steps.map((step, position) => (position === index ? { ...step, ...patch } : step)));
+  }
+
+  return (
+    <>
+      {steps.map((step, index) => (
+        <fieldset key={`${step.key}-${index}`} className="space-y-3 rounded-[12px] border border-line p-3">
+          <div className="flex items-center justify-between">
+            <legend className="text-[12px] font-medium text-muted">Step {index + 1}</legend>
+            {steps.length > 2 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onChange(steps.filter((_, position) => position !== index).map((item) => ({
+                  ...item,
+                  dependsOn: item.dependsOn.filter((key) => key !== step.key),
+                })))}
+              >
+                Remove
+              </Button>
+            ) : null}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Field label="Key"><TextInput value={step.key} onChange={(event) => update(index, { key: event.target.value })} required /></Field>
+            <Field label="Handler">
+              <SelectInput value={step.handler} onChange={(event) => update(index, { handler: event.target.value })} aria-label={`Handler for ${step.key || `step ${index + 1}`}`}>
+                {handlers.map((handler) => <option key={handler.name} value={handler.name}>{handler.title}</option>)}
+              </SelectInput>
+            </Field>
+            <Field label="Queue">
+              <SelectInput value={step.queue} onChange={(event) => update(index, { queue: event.target.value })} aria-label={`Queue for ${step.key || `step ${index + 1}`}`}>
+                {queues.map((queue) => <option key={queue.id} value={queue.name}>{queue.name}</option>)}
+              </SelectInput>
+            </Field>
+          </div>
+          <Field label="Waits for">
+            <div className="flex flex-wrap gap-3">
+              {steps.filter((other) => other.key && other.key !== step.key).map((other) => (
+                <label key={other.key} className="flex items-center gap-2 text-[13px]">
+                  <input
+                    type="checkbox"
+                    checked={step.dependsOn.includes(other.key)}
+                    onChange={(event) => update(index, {
+                      dependsOn: event.target.checked
+                        ? [...step.dependsOn, other.key]
+                        : step.dependsOn.filter((key) => key !== other.key),
+                    })}
+                  />
+                  {other.key}
+                </label>
+              ))}
+            </div>
+          </Field>
+          <Field label="Payload">
+            <textarea
+              className="min-h-24 w-full rounded-[10px] border border-line bg-bg px-3 py-2 font-mono text-[12px] outline-none focus:border-accent"
+              value={step.payload}
+              aria-label={`Payload for ${step.key || `step ${index + 1}`}`}
+              onChange={(event) => update(index, { payload: event.target.value })}
+            />
+          </Field>
+        </fieldset>
+      ))}
+      <Button
+        type="button"
+        variant="secondary"
+        disabled={steps.length >= 8}
+        onClick={() => onChange([...steps, {
+          key: `step-${steps.length + 1}`,
+          handler: "send-notification",
+          queue: "notifications",
+          dependsOn: steps.at(-1)?.key ? [steps.at(-1)!.key] : [],
+          payload: JSON.stringify({ channel: "in-app", recipientId: "ops", message: "Workflow finished" }, null, 2),
+        }])}
+      >
+        Add step
+      </Button>
+    </>
+  );
+}
+
+function parseDrafts(steps: DraftStep[]) {
+  return steps.map((step) => ({
+    key: step.key.trim(),
+    handler: step.handler,
+    queue: step.queue,
+    dependsOn: step.dependsOn,
+    payload: JSON.parse(step.payload) as Record<string, unknown>,
+  }));
+}
+
+function EditWorkflowSteps({ workflow, onClose }: { workflow: Workflow | null; onClose: () => void }) {
+  const projectId = useSession((state) => state.projectId);
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [steps, setSteps] = useState<DraftStep[]>(starter);
+  const [error, setError] = useState("");
+  const handlers = useQuery({ queryKey: ["handlers"], queryFn: () => api<HandlerInfo[]>("/meta/handlers") });
+  const queues = useQuery({
+    queryKey: ["queues", projectId],
+    enabled: Boolean(projectId),
+    queryFn: () => api<Queue[]>(`/projects/${projectId}/queues`),
+  });
+  useEffect(() => {
+    if (!workflow) return;
+    const byKey = new Map(workflow.steps.map((step) => [step.key, step]));
+    const ordered = workflow.executionOrder.map((key) => byKey.get(key)).filter((step) => step !== undefined);
+    const source = ordered.length === workflow.steps.length ? ordered : workflow.steps;
+    setSteps(source.map((step) => ({
+      key: step.key,
+      handler: step.handler,
+      queue: step.queue,
+      dependsOn: [...step.dependsOn],
+      payload: JSON.stringify(step.payload, null, 2),
+    })));
+    setError("");
+  }, [workflow]);
+  const save = useMutation({
+    mutationFn: (body: { steps: ReturnType<typeof parseDrafts> }) => api<Workflow>(`/projects/${projectId}/workflows/${workflow?.id}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+    onSuccess: () => {
+      toast("success", "Workflow steps updated");
+      setError("");
+      onClose();
+      void client.invalidateQueries({ queryKey: ["workflows", projectId] });
+      void client.invalidateQueries({ queryKey: ["workflow", projectId, workflow?.id] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : "Could not update the steps"),
+  });
+  return (
+    <Dialog open={Boolean(workflow)} title="Edit steps" description="The workflow id stays. A run that already started keeps the steps it began with. The next run uses this tree." onClose={onClose}>
+      <form
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          try {
+            save.mutate({ steps: parseDrafts(steps) });
+          } catch {
+            setError("One of the payloads is not valid JSON");
+          }
+        }}
+      >
+        <WorkflowStepFields
+          steps={steps}
+          handlers={handlers.data?.data ?? []}
+          queues={queues.data?.data ?? []}
+          onChange={setSteps}
+        />
+        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={save.isPending}>Save</Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
 function CreateWorkflow({ onClose }: { onClose: () => void }) {
   const projectId = useSession((state) => state.projectId);
   const toast = useUi((state) => state.toast);
@@ -212,109 +388,28 @@ function CreateWorkflow({ onClose }: { onClose: () => void }) {
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not create the workflow"),
   });
 
-  function update(index: number, patch: Partial<DraftStep>) {
-    setSteps((current) => current.map((step, position) => (position === index ? { ...step, ...patch } : step)));
-  }
-
   return (
     <Dialog open title="New workflow" onClose={onClose}>
       <form
         className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
-          const parsed = [];
-          for (const step of steps) {
-            try {
-              parsed.push({
-                key: step.key.trim(),
-                handler: step.handler,
-                queue: step.queue,
-                dependsOn: step.dependsOn,
-                payload: JSON.parse(step.payload) as Record<string, unknown>,
-              });
-            } catch {
-              toast("error", `Payload for ${step.key || "a step"} is not valid JSON`);
-              return;
-            }
+          try {
+            create.mutate({ name, description, steps: parseDrafts(steps) });
+          } catch {
+            toast("error", "One of the payloads is not valid JSON");
           }
-          create.mutate({ name, description, steps: parsed });
         }}
       >
         <Field label="Name"><TextInput value={name} onChange={(event) => setName(event.target.value)} required /></Field>
         <Field label="Description"><TextInput value={description} onChange={(event) => setDescription(event.target.value)} /></Field>
-        {steps.map((step, index) => (
-          <fieldset key={index} className="space-y-3 rounded-[12px] border border-line p-3">
-            <div className="flex items-center justify-between">
-              <legend className="text-[12px] font-medium text-muted">Step {index + 1}</legend>
-              {steps.length > 2 ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSteps((current) => current.filter((_, position) => position !== index).map((item) => ({
-                    ...item,
-                    dependsOn: item.dependsOn.filter((key) => key !== step.key),
-                  })))}
-                >
-                  Remove
-                </Button>
-              ) : null}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <Field label="Key"><TextInput value={step.key} onChange={(event) => update(index, { key: event.target.value })} required /></Field>
-              <Field label="Handler">
-                <SelectInput value={step.handler} onChange={(event) => update(index, { handler: event.target.value })}>
-                  {(handlers.data?.data ?? []).map((handler) => <option key={handler.name} value={handler.name}>{handler.title}</option>)}
-                </SelectInput>
-              </Field>
-              <Field label="Queue">
-                <SelectInput value={step.queue} onChange={(event) => update(index, { queue: event.target.value })}>
-                  {(queues.data?.data ?? []).map((queue) => <option key={queue.id} value={queue.name}>{queue.name}</option>)}
-                </SelectInput>
-              </Field>
-            </div>
-            <Field label="Waits for">
-              <div className="flex flex-wrap gap-3">
-                {steps.filter((other) => other.key && other.key !== step.key).map((other) => (
-                  <label key={other.key} className="flex items-center gap-2 text-[13px]">
-                    <input
-                      type="checkbox"
-                      checked={step.dependsOn.includes(other.key)}
-                      onChange={(event) => update(index, {
-                        dependsOn: event.target.checked
-                          ? [...step.dependsOn, other.key]
-                          : step.dependsOn.filter((key) => key !== other.key),
-                      })}
-                    />
-                    {other.key}
-                  </label>
-                ))}
-              </div>
-            </Field>
-            <Field label="Payload">
-              <textarea
-                className="min-h-24 w-full rounded-[10px] border border-line bg-bg px-3 py-2 font-mono text-[12px] outline-none focus:border-accent"
-                value={step.payload}
-                onChange={(event) => update(index, { payload: event.target.value })}
-              />
-            </Field>
-          </fieldset>
-        ))}
-        <div className="flex justify-between gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={steps.length >= 8}
-            onClick={() => setSteps((current) => [...current, {
-              key: `step-${current.length + 1}`,
-              handler: "send-notification",
-              queue: "notifications",
-              dependsOn: current.at(-1)?.key ? [current.at(-1)!.key] : [],
-              payload: JSON.stringify({ channel: "in-app", recipientId: "ops", message: "Workflow finished" }, null, 2),
-            }])}
-          >
-            Add step
-          </Button>
+        <WorkflowStepFields
+          steps={steps}
+          handlers={handlers.data?.data ?? []}
+          queues={queues.data?.data ?? []}
+          onChange={setSteps}
+        />
+        <div className="flex justify-end">
           <Button type="submit" loading={create.isPending}>Create</Button>
         </div>
       </form>
@@ -356,6 +451,7 @@ export function WorkflowDetailPage() {
   });
   const [cancelOpen, setCancelOpen] = useState(false);
   const [editing, setEditing] = useState<Workflow | null>(null);
+  const [editingSteps, setEditingSteps] = useState<Workflow | null>(null);
   const cancel = useMutation({
     mutationFn: (id: string) => api<WorkflowRun>(`/projects/${projectId}/workflows/${workflowId}/runs/${id}/cancel`, { method: "POST" }),
     onSuccess: () => {
@@ -398,6 +494,7 @@ export function WorkflowDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           {definition ? <Button variant="secondary" onClick={() => setEditing(definition)}>Edit</Button> : null}
+          {definition ? <Button variant="secondary" onClick={() => setEditingSteps(definition)}>Steps</Button> : null}
           {definition ? <WorkflowPause workflow={definition} variant="secondary" /> : null}
           <Button onClick={() => start.mutate()} loading={start.isPending}>Run</Button>
         </div>
@@ -478,6 +575,7 @@ export function WorkflowDetailPage() {
         <EmptyState title="No run yet" body="Run the workflow to create one job per step. Later steps stay waiting until the steps they depend on complete." />
       )}
       <EditWorkflow workflow={editing} onClose={() => setEditing(null)} />
+      <EditWorkflowSteps workflow={editingSteps} onClose={() => setEditingSteps(null)} />
       <Dialog open={cancelOpen} title="Cancel this run" description="Waiting and delayed steps are removed from their queues. Completed and failed steps stay. A step that is already running cannot be cancelled." onClose={() => setCancelOpen(false)}>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setCancelOpen(false)}>Keep</Button>

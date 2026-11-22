@@ -115,16 +115,11 @@ export async function getWorkflow(project: ProjectDoc, workflowId: string) {
   return { workflow, runCount, lastRun: runs[0] ?? null, runs };
 }
 
-export async function createWorkflow(project: ProjectDoc, input: WorkflowInput, auth: AuthContext) {
-  const graph = validateWorkflowGraph(input.steps);
+async function prepareSteps(project: ProjectDoc, steps: WorkflowStepInput[]) {
+  const graph = validateWorkflowGraph(steps);
   if (!graph.ok) throw new AppError(400, "WORKFLOW_INVALID", graph.message);
-  const count = await Workflow.countDocuments({ projectId: project._id, deletedAt: null });
-  if (count >= MAX_WORKFLOWS_PER_PROJECT) {
-    throw new AppError(409, "WORKFLOW_LIMIT", `A project can keep ${MAX_WORKFLOWS_PER_PROJECT} workflows`);
-  }
-
-  const prepared = [];
-  for (const step of input.steps) {
+  const prepared: StoredStep[] = [];
+  for (const step of steps) {
     if (!isHandlerName(step.handler)) throw new AppError(400, "HANDLER_NOT_FOUND", `Unknown handler on step "${step.key}"`);
     const handler = step.handler as HandlerName;
     const unsafe = findUnsafeKey(step.payload);
@@ -140,8 +135,25 @@ export async function createWorkflow(project: ProjectDoc, input: WorkflowInput, 
     if (!simulation.ok) throw new AppError(400, "SIMULATION_DISABLED", simulation.message);
     const queue = await QueueConfig.findOne({ projectId: project._id, name: step.queue, deletedAt: null });
     if (!queue) throw new AppError(404, "QUEUE_NOT_FOUND", `Queue "${step.queue}" was not found`);
-    prepared.push({ step, handler, payload: parsed.data, queue });
+    prepared.push({
+      key: step.key,
+      handler,
+      queueName: queue.name,
+      queuePublicId: queue.publicId,
+      bullQueueName: queue.bullQueueName,
+      payload: parsed.data as Record<string, unknown>,
+      dependsOn: step.dependsOn,
+    });
   }
+  return prepared;
+}
+
+export async function createWorkflow(project: ProjectDoc, input: WorkflowInput, auth: AuthContext) {
+  const count = await Workflow.countDocuments({ projectId: project._id, deletedAt: null });
+  if (count >= MAX_WORKFLOWS_PER_PROJECT) {
+    throw new AppError(409, "WORKFLOW_LIMIT", `A project can keep ${MAX_WORKFLOWS_PER_PROJECT} workflows`);
+  }
+  const prepared = await prepareSteps(project, input.steps);
 
   try {
     const workflow = await Workflow.create({
@@ -150,15 +162,7 @@ export async function createWorkflow(project: ProjectDoc, input: WorkflowInput, 
       projectPublicId: project.publicId,
       name: input.name.trim(),
       description: input.description?.trim() ?? "",
-      steps: prepared.map(({ step, handler, payload, queue }) => ({
-        key: step.key,
-        handler,
-        queueName: queue.name,
-        queuePublicId: queue.publicId,
-        bullQueueName: queue.bullQueueName,
-        payload,
-        dependsOn: step.dependsOn,
-      })),
+      steps: prepared,
       createdBy: actor(auth),
     });
     await AuditLog.create({
@@ -180,15 +184,19 @@ export async function createWorkflow(project: ProjectDoc, input: WorkflowInput, 
 export async function updateWorkflow(
   project: ProjectDoc,
   workflowId: string,
-  input: { name?: string; description?: string },
+  input: { name?: string; description?: string; steps?: WorkflowStepInput[] },
   auth: AuthContext,
 ) {
   const workflow = await Workflow.findOne({ projectId: project._id, publicId: workflowId, deletedAt: null }) as WorkflowDoc | null;
   if (!workflow) throw new AppError(404, "WORKFLOW_NOT_FOUND", "Workflow not found");
   const previousName = workflow.name;
   const previousDescription = workflow.description ?? "";
+  const previousSteps = workflow.steps.map((step) => step.key);
   if (input.name) workflow.name = input.name.trim();
   if (typeof input.description === "string") workflow.description = input.description.trim();
+  if (input.steps) {
+    workflow.set("steps", await prepareSteps(project, input.steps));
+  }
   try {
     await workflow.save();
   } catch (error) {
@@ -205,6 +213,7 @@ export async function updateWorkflow(
     metadata: {
       ...(workflow.name !== previousName ? { name: workflow.name, previousName } : {}),
       ...(workflow.description !== previousDescription ? { description: workflow.description, previousDescription } : {}),
+      ...(input.steps ? { steps: workflow.steps.map((step) => step.key), previousSteps } : {}),
     },
   });
   return workflow;

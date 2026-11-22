@@ -144,12 +144,15 @@ it("renames a workflow without replacing its steps or runs", async () => {
   expect(empty.status).toBe(400);
   expect(empty.body.error.code).toBe("VALIDATION_ERROR");
 
-  const ignored = await asAda(ada.patch(`/api/v1/projects/${projectId}/workflows/${workflowId}`)).send({
+  const emptySteps = await asAda(ada.patch(`/api/v1/projects/${projectId}/workflows/${workflowId}`)).send({
     description: "Still the same steps.",
     steps: [],
   });
-  expect(ignored.status).toBe(200);
-  expect(ignored.body.data.steps).toHaveLength(2);
+  expect(emptySteps.status).toBe(400);
+  expect(emptySteps.body.error.code).toBe("VALIDATION_ERROR");
+  const unchanged = await asAda(ada.get(`/api/v1/projects/${projectId}/workflows/${workflowId}`));
+  expect(unchanged.body.data.description).toBe("Send the weekly activity report.");
+  expect(unchanged.body.data.steps).toHaveLength(2);
 
   const outsider = await request(server).post("/api/v1/auth/register").send({
     name: "Katherine Johnson",

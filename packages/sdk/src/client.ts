@@ -209,7 +209,7 @@ export class TaskFlow {
     get: async (workflowId: string) => this.request<WorkflowResource>("GET", await this.projectPath(`/workflows/${encodeURIComponent(workflowId)}`)),
     create: async (input: { name: string; description?: string; steps: Record<string, unknown>[] }) =>
       this.request<WorkflowResource>("POST", await this.projectPath("/workflows"), { body: input }),
-    update: async (workflowId: string, input: { name?: string; description?: string }) =>
+    update: async (workflowId: string, input: { name?: string; description?: string; steps?: Record<string, unknown>[] }) =>
       this.request<WorkflowResource>("PATCH", await this.projectPath(`/workflows/${encodeURIComponent(workflowId)}`), { body: input }),
     pause: async (workflowId: string) => this.request<WorkflowResource>("POST", await this.projectPath(`/workflows/${encodeURIComponent(workflowId)}/pause`)),
     resume: async (workflowId: string) => this.request<WorkflowResource>("POST", await this.projectPath(`/workflows/${encodeURIComponent(workflowId)}/resume`)),

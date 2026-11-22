@@ -128,7 +128,7 @@ Lists also accept `dismissed=true` or `dismissed=false`. Omitting it returns bot
 
 A workflow has 2 to 8 steps and exactly one final step. A step may wait for several earlier steps. An earlier step can be a dependency of only one later step, because BullMQ flows are trees. Cycles are rejected.
 
-`PATCH /projects/:projectId/workflows/:workflowId` changes the name or description in place. The workflow id, steps, and existing runs stay. A name shorter than 2 characters, or an empty body, returns `400` `VALIDATION_ERROR`. A duplicate name returns `409` `WORKFLOW_EXISTS`. Sending a step list does not change the steps.
+`PATCH /projects/:projectId/workflows/:workflowId` changes the name, description, or steps in place. The workflow id and pause state stay. `steps` replaces the whole tree. The next run uses that tree. A run that already started keeps the steps and job ids it began with. A list shorter than 2 steps, longer than 8, or not a tree returns `400` `VALIDATION_ERROR`. An unknown queue returns `404` `QUEUE_NOT_FOUND`. A name shorter than 2 characters, or an empty body, returns `400` `VALIDATION_ERROR`. A duplicate name returns `409` `WORKFLOW_EXISTS`.
 
 `POST /projects/:projectId/workflows/:workflowId/pause` stops new runs. The workflow id, steps, and runs that already started stay. A second pause returns `409` `WORKFLOW_PAUSED`. Starting a run while the workflow is paused returns the same code. `POST /projects/:projectId/workflows/:workflowId/resume` accepts runs again. Resuming a workflow that is not paused returns `409` `WORKFLOW_NOT_PAUSED`.
 
