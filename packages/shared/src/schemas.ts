@@ -151,6 +151,12 @@ export const updateJobPrioritySchema = z.object({
   priority: z.enum(PRIORITY_LABELS),
 });
 
+export const updateQueuedPrioritySchema = z.object({
+  queue: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
+  priority: z.enum(PRIORITY_LABELS),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const moveJobSchema = z.object({
   queue: z.string().trim().regex(QUEUE_NAME_PATTERN),
 });

@@ -307,6 +307,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/jobs/promote-delayed", "Run up to 50 delayed jobs now and keep their ids"],
     ["POST", "/projects/:id/jobs/:jobId/reschedule", "Give a waiting or delayed job a new delay"],
     ["POST", "/projects/:id/jobs/:jobId/priority", "Change the priority of a waiting or delayed job"],
+    ["POST", "/projects/:id/jobs/priority", "Change the priority of up to 50 waiting or delayed jobs"],
     ["POST", "/projects/:id/jobs/:jobId/queue", "Move a waiting or delayed job to another queue"],
     ["POST", "/projects/:id/jobs/:jobId/dismiss", "Take a failed job off the dead letter list"],
     ["POST", "/projects/:id/jobs/:jobId/restore", "Put a dismissed job back on the dead letter list"],
