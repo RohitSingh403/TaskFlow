@@ -252,6 +252,8 @@ export class TaskFlow {
     deliveries: async (webhookId: string) => this.request<WebhookDelivery[]>("GET", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/deliveries`)),
     redeliver: async (webhookId: string, deliveryId: string) =>
       this.request<WebhookDelivery>("POST", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/deliveries/${encodeURIComponent(deliveryId)}/redeliver`)),
+    redeliverFailed: async (input: { webhookId?: string; limit?: number } = {}) =>
+      this.request<{ redelivered: number; skipped: number; deliveryIds: string[] }>("POST", await this.projectPath("/webhooks/redeliver-failed"), { body: input }),
   };
 
   readonly billing = {

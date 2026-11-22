@@ -325,6 +325,11 @@ export const webhookSchema = z.object({
   events: z.array(z.enum(WEBHOOK_EVENTS)).min(1).max(WEBHOOK_EVENTS.length),
 });
 
+export const redeliverFailedWebhooksSchema = z.object({
+  webhookId: z.string().trim().min(4).max(40).optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const updateWebhookSchema = z
   .object({
     url: z.string().trim().url().max(500).optional(),

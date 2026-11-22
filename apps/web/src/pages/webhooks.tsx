@@ -61,6 +61,17 @@ export function WebhooksPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not rotate the secret"),
   });
+  const redeliverFailed = useMutation({
+    mutationFn: () => api<{ redelivered: number }>(`/projects/${projectId}/webhooks/redeliver-failed`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      toast("success", result.data.redelivered === 1 ? "Queued 1 delivery" : `Queued ${result.data.redelivered} deliveries`);
+      void client.invalidateQueries({ queryKey: ["webhooks", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not send the failed deliveries again"),
+  });
   const remove = useMutation({
     mutationFn: (hookId: string) => api(`/projects/${projectId}/webhooks/${hookId}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -79,7 +90,7 @@ export function WebhooksPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Webhooks</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Edit changes the URL or events and keeps the endpoint id and signing secret. Send test queues a webhook.test delivery without waiting for a job. Rotate replaces the signing secret. Deliveries that have not been sent use the current URL and secret. Send again queues that same delivery id. Receivers should ignore a delivery id they have already handled.
+            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Edit changes the URL or events and keeps the endpoint id and signing secret. Send test queues a webhook.test delivery without waiting for a job. Rotate replaces the signing secret. Deliveries that have not been sent use the current URL and secret. Send again queues that same delivery id. Send failed again queues the oldest failed deliveries, up to 20. Each delivery keeps its id. Receivers should ignore a delivery id they have already handled.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New webhook</Button>
@@ -124,7 +135,18 @@ export function WebhooksPage() {
         </Card>
       ) : null}
       <Card className="overflow-x-auto">
-        <div className="border-b border-line px-4 py-3 text-[13px] font-medium">Recent deliveries</div>
+        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+          <h2 className="text-[13px] font-medium">Recent deliveries</h2>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!deliveries.some((delivery) => delivery.status === "failed") || redeliverFailed.isPending}
+            loading={redeliverFailed.isPending}
+            onClick={() => redeliverFailed.mutate()}
+          >
+            Send failed again
+          </Button>
+        </div>
         {deliveries.length === 0 ? <p className="px-4 py-6 text-[13px] text-muted">No deliveries yet.</p> : (
           <table className="w-full min-w-[720px] text-left text-[13px]">
             <thead className="text-[12px] text-muted">

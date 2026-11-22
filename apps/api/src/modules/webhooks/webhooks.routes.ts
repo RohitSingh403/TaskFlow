@@ -1,4 +1,4 @@
-import { updateWebhookSchema, webhookSchema } from "@taskflow/shared";
+import { redeliverFailedWebhooksSchema, updateWebhookSchema, webhookSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toWebhook, toWebhookDelivery } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -11,6 +11,7 @@ import {
   deleteWebhook,
   listWebhookDeliveries,
   listWebhooks,
+  redeliverFailedWebhooks,
   redeliverWebhook,
   rotateWebhookSecret,
   sendTestWebhook,
@@ -51,6 +52,16 @@ webhookRouter.patch(
   validateBody(updateWebhookSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, toWebhook(await updateWebhook(req.project!, String(req.params.webhookId), req.body, req.auth!)));
+  }),
+);
+
+webhookRouter.post(
+  "/redeliver-failed",
+  writeLimiter,
+  requireScope("jobs:write"),
+  validateBody(redeliverFailedWebhooksSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await redeliverFailedWebhooks(req.project!, req.body, req.auth!));
   }),
 );
 
