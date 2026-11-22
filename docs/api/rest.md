@@ -138,6 +138,8 @@ A workflow has 2 to 8 steps and exactly one final step. A step may wait for seve
 
 `type` is `queue.backlog`, `failure.rate`, `worker.offline`, or `job.long_running`. A failure-rate rule uses `threshold` as a percent and skips until `minSamples` jobs have finished in `windowMs`. A long-running rule uses `threshold` as milliseconds a job has stayed active. `cooldownMs` defaults to 15 minutes.
 
+`PATCH /projects/:projectId/alerts/rules/:ruleId` changes the name, threshold, window, sample minimum, or cooldown in place. The rule id, type, queue, and silence stay. An offline-worker rule has no threshold and returns `400` `VALIDATION_ERROR` if one is sent. A failure-rate threshold above 100, or a long-running threshold under 10 seconds, returns the same code. A duplicate name returns `409` `ALERT_EXISTS`.
+
 The scheduler leader evaluates enabled rules. A true rule opens one alert, then waits out the cooldown before it can open another. `POST /projects/:projectId/alerts/rules/:ruleId/silence` with `{ "durationMs": 3600000 }` skips that rule until the duration ends. The rule stays enabled. `durationMs` is from 5 minutes to 7 days. A shorter or longer value returns `400` `VALIDATION_ERROR`. `POST /projects/:projectId/alerts/rules/:ruleId/unsilence` clears the skip. `GET /projects/:projectId/alerts` is the history. `POST /projects/:projectId/alerts/:alertId/resolve` marks one resolved. Deleting a rule is soft and stops future checks.
 
 ## Webhooks

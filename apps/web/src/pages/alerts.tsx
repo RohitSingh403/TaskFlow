@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
 import { formatWhen } from "@/lib/format";
 import type { AlertEvent, AlertRule, AlertType, Queue } from "@/lib/types";
@@ -18,6 +18,7 @@ export function AlertsPage() {
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<AlertRule | null>(null);
   const rules = useQuery({
     queryKey: ["alert-rules", projectId],
     enabled: Boolean(projectId),
@@ -63,7 +64,7 @@ export function AlertsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Alerts</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Silence skips a rule until the time you choose. The rule stays enabled.
+            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. The rule stays enabled.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New rule</Button>
@@ -93,6 +94,7 @@ export function AlertsPage() {
                   <td className="px-4 py-3 text-muted">{describe(rule)}</td>
                   <td className="px-4 py-3">{formatWhen(rule.lastTriggeredAt)}</td>
                   <td className="px-4 py-3 text-right">
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(rule)}>Edit</Button>
                     <RuleSilence rule={rule} />
                     <Button variant="ghost" size="sm" onClick={() => toggle.mutate(rule)}>{rule.enabled ? "Pause" : "Enable"}</Button>
                     <Button variant="ghost" size="sm" onClick={() => remove.mutate(rule.id)}>Delete</Button>
@@ -131,6 +133,7 @@ export function AlertsPage() {
         )}
       </Card>
       {open ? <CreateRule onClose={() => setOpen(false)} /> : null}
+      <EditRule rule={editing} onClose={() => setEditing(null)} />
     </div>
   );
 }
@@ -183,6 +186,63 @@ function RuleSilence({ rule }: { rule: AlertRule }) {
       </SelectInput>
       <Button variant="ghost" size="sm" loading={silence.isPending} onClick={() => silence.mutate()}>Silence</Button>
     </span>
+  );
+}
+
+function EditRule({ rule, onClose }: { rule: AlertRule | null; onClose: () => void }) {
+  const projectId = useSession((state) => state.projectId);
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [name, setName] = useState("");
+  const [threshold, setThreshold] = useState("");
+  const [cooldownMinutes, setCooldownMinutes] = useState("15");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!rule) return;
+    setName(rule.name);
+    setThreshold(String(rule.threshold));
+    setCooldownMinutes(String(Math.round(rule.cooldownMs / 60_000)));
+    setError("");
+  }, [rule]);
+  const save = useMutation({
+    mutationFn: () => api<AlertRule>(`/projects/${projectId}/alerts/rules/${rule?.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name,
+        cooldownMs: Number(cooldownMinutes) * 60_000,
+        ...(rule && rule.type !== "worker.offline" ? { threshold: Number(threshold) } : {}),
+      }),
+    }),
+    onSuccess: () => {
+      toast("success", "Alert rule updated");
+      setError("");
+      onClose();
+      void client.invalidateQueries({ queryKey: ["alert-rules", projectId] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : "Could not update the rule"),
+  });
+  const thresholdLabel = rule?.type === "failure.rate" ? "Failure percent" : rule?.type === "job.long_running" ? "Active for (ms)" : "Waiting jobs";
+  return (
+    <Dialog open={Boolean(rule)} title="Edit alert rule" description="The rule id and silence stay. The type and queue stay too." onClose={onClose}>
+      <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); save.mutate(); }}>
+        <Field label="Name">
+          <TextInput value={name} onChange={(event) => setName(event.target.value)} aria-label="Alert rule name" required minLength={2} />
+        </Field>
+        {rule && rule.type !== "worker.offline" ? (
+          <Field label={thresholdLabel}>
+            <TextInput value={threshold} onChange={(event) => setThreshold(event.target.value)} aria-label="Alert threshold" inputMode="numeric" required />
+          </Field>
+        ) : null}
+        <Field label="Cooldown (minutes)">
+          <TextInput value={cooldownMinutes} onChange={(event) => setCooldownMinutes(event.target.value)} aria-label="Alert cooldown" inputMode="numeric" required />
+        </Field>
+        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={save.isPending}>Save</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 

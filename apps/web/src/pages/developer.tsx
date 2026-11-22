@@ -199,6 +199,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/workflows/:workflowId/runs", "Start one run of that workflow"],
     ["POST", "/projects/:id/workflows/:workflowId/runs/:runId/cancel", "Cancel the steps that are still waiting"],
     ["POST", "/projects/:id/alerts/rules", "Create a backlog, failure, offline, or long-running alert"],
+    ["PATCH", "/projects/:id/alerts/rules/:ruleId", "Change an alert rule and keep its id"],
     ["POST", "/projects/:id/alerts/rules/:ruleId/silence", "Skip a rule until a chosen time"],
     ["POST", "/projects/:id/alerts/:alertId/resolve", "Mark an alert resolved"],
     ["POST", "/projects/:id/webhooks", "Register a signed outbound endpoint"],
