@@ -23,7 +23,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - A bulk cancel for waiting and delayed jobs. Active jobs stay. Workflow steps are left for the run that owns them.
 - Recurring schedules. A separate scheduler process creates one normal job per cron tick. Editing a schedule keeps its id. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time unchanged.
 - Workflows. A run is a tree of normal jobs. Children finish before the parent that waits on them. Edit changes the name or description and keeps the workflow id. Steps replaces that tree for the next run. A run that already started keeps the steps it began with. Pause stops new runs and leaves runs that already started. Cancel removes the steps that are still waiting and keeps the run id. An active step is left to finish, and that cancel is refused until it does.
-- Alert rules for queue backlog, failure rate, offline workers, and long-running jobs. The scheduler opens an in-app alert and then waits out a cooldown. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until a chosen time. The rule stays enabled.
+- Alert rules for queue backlog, failure rate, offline workers, and long-running jobs. The scheduler opens an in-app alert and then waits out a cooldown. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until a chosen time. The rule stays enabled. Resolve open marks the oldest open alerts resolved, up to 50, and keeps each alert id.
 - Signed outbound webhooks for job completion, failure, cancellation, and fired alerts. Delivery is at least once from the worker. Edit changes the URL or events and keeps the endpoint id and signing secret. Send test queues a `webhook.test` delivery without waiting for a job. Rotate replaces the signing secret, and deliveries that have not been sent use the new one. Send again queues that same delivery id.
 - A separate worker process, heartbeats, and health derived from those heartbeats.
 - Attempt history, structured logs, and dashboard metrics.
@@ -173,6 +173,7 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | PATCH | `/projects/:id/alerts/rules/:ruleId` | Change an alert rule and keep its id |
 | POST | `/projects/:id/alerts/rules/:ruleId/silence` | Skip a rule until a chosen time |
 | GET | `/projects/:id/alerts` | Alert history |
+| POST | `/projects/:id/alerts/resolve-open` | Resolve up to 50 open alerts and keep their ids |
 | POST | `/projects/:id/webhooks` | Register a signed webhook |
 | PATCH | `/projects/:id/webhooks/:webhookId` | Change a webhook URL or its events |
 | PATCH | `/projects/:id/api-keys/:keyId` | Change an API key's name or scopes and keep its secret |

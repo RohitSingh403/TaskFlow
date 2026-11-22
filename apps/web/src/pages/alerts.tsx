@@ -46,6 +46,17 @@ export function AlertsPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not delete the rule"),
   });
+  const resolveOpen = useMutation({
+    mutationFn: () => api<{ resolved: number }>(`/projects/${projectId}/alerts/resolve-open`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      toast("success", result.data.resolved === 1 ? "Resolved 1 alert" : `Resolved ${result.data.resolved} alerts`);
+      void client.invalidateQueries({ queryKey: ["alerts", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not resolve open alerts"),
+  });
   const resolve = useMutation({
     mutationFn: (alertId: string) => api<AlertEvent>(`/projects/${projectId}/alerts/${alertId}/resolve`, { method: "POST" }),
     onSuccess: () => {
@@ -64,7 +75,7 @@ export function AlertsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Alerts</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. The rule stays enabled.
+            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. The rule stays enabled. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New rule</Button>
@@ -106,8 +117,17 @@ export function AlertsPage() {
         </Card>
       ) : null}
       <Card className="overflow-x-auto">
-        <div className="px-4 py-3">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
           <h2 className="text-[14px] font-medium">History</h2>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={!history.some((alert) => alert.status === "open") || resolveOpen.isPending}
+            loading={resolveOpen.isPending}
+            onClick={() => resolveOpen.mutate()}
+          >
+            Resolve open
+          </Button>
         </div>
         {history.length === 0 ? <p className="px-4 pb-4 text-[13px] text-muted">No alerts yet.</p> : (
           <table className="w-full min-w-[720px] text-left text-[13px]">

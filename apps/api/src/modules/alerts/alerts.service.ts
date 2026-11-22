@@ -168,6 +168,32 @@ export async function resolveAlert(project: ProjectDoc, alertId: string, auth: A
   return alert;
 }
 
+export async function resolveOpenAlerts(
+  project: ProjectDoc,
+  input: { ruleId?: string; limit?: number },
+  auth: AuthContext,
+) {
+  const filter: Record<string, unknown> = { projectId: project._id, status: "open" };
+  if (input.ruleId) {
+    const rule = await AlertRule.findOne({ projectId: project._id, publicId: input.ruleId, deletedAt: null });
+    if (!rule) throw new AppError(404, "ALERT_NOT_FOUND", "Alert rule not found");
+    filter.ruleId = rule._id;
+  }
+  const limit = Math.min(input.limit ?? 20, 50);
+  const open = await AlertEvent.find(filter).sort({ createdAt: 1 }).limit(limit);
+  const alertIds: string[] = [];
+  let skipped = 0;
+  for (const record of open) {
+    if (record.status !== "open") {
+      skipped += 1;
+      continue;
+    }
+    await resolveAlert(project, record.publicId, auth);
+    alertIds.push(record.publicId);
+  }
+  return { resolved: alertIds.length, skipped, alertIds };
+}
+
 export async function silenceAlertRule(project: ProjectDoc, ruleId: string, durationMs: number, auth: AuthContext, now = new Date()) {
   const rule = await AlertRule.findOne({ projectId: project._id, publicId: ruleId, deletedAt: null }) as AlertRuleDoc | null;
   if (!rule) throw new AppError(404, "ALERT_NOT_FOUND", "Alert rule not found");
