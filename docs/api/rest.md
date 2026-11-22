@@ -55,6 +55,8 @@ API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `worke
 
 A job that has used its attempts stays `failed` on the same queue. `POST /projects/:projectId/jobs/retry-failed` with `{ "queue": "emails", "limit": 20 }` retries the oldest failed jobs that are still on the dead letter list, up to 50. The same job id is queued again. A repeated call does not insert another job record. A dismissed job is skipped.
 
+`POST /projects/:projectId/jobs/dismiss-failed` with `{ "queue": "emails", "limit": 20 }` sets `dismissedAt` on the oldest failed jobs that are still listed, up to 50. The status stays `failed` and the job id stays. A waiting job is left alone. A second call does not dismiss those jobs again. An unknown queue returns `404` `QUEUE_NOT_FOUND`. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`.
+
 `POST /projects/:projectId/jobs/:jobId/dismiss` sets `dismissedAt` on a failed job. The status stays `failed`, and `GET /jobs?status=failed&dismissed=false` no longer returns it. A waiting, delayed, active, completed, or cancelled job returns `409` `JOB_NOT_DISMISSIBLE`. A second dismiss returns the same code. `POST /projects/:projectId/jobs/:jobId/restore` clears `dismissedAt`. Restoring a job that is still listed returns `409` `JOB_NOT_DISMISSIBLE`. Retrying that job clears the dismissal, so a later failure can return to the list.
 
 Lists also accept `dismissed=true` or `dismissed=false`. Omitting it returns both.

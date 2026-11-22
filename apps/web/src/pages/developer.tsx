@@ -190,6 +190,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/jobs/:jobId/dismiss", "Take a failed job off the dead letter list"],
     ["POST", "/projects/:id/jobs/:jobId/restore", "Put a dismissed job back on the dead letter list"],
     ["POST", "/projects/:id/jobs/retry-failed", "Retry up to 50 failed jobs that are still listed"],
+    ["POST", "/projects/:id/jobs/dismiss-failed", "Take up to 50 failed jobs off the dead letter list"],
     ["POST", "/projects/:id/jobs/cancel-queued", "Cancel up to 50 waiting or delayed jobs"],
     ["POST", "/projects/:id/schedules", "Create a recurring schedule"],
     ["PATCH", "/projects/:id/schedules/:scheduleId", "Change a schedule and keep its id"],

@@ -43,6 +43,17 @@ export function DeadLetterPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not dismiss the job"),
   });
+  const dismissFailed = useMutation({
+    mutationFn: () => api<{ dismissed: number; skipped: number }>(`/projects/${projectId}/jobs/dismiss-failed`, {
+      method: "POST",
+      body: JSON.stringify(queue ? { queue, limit: 20 } : { limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      toast("success", result.data.dismissed === 1 ? "Dismissed 1 job" : `Dismissed ${result.data.dismissed} jobs`);
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not dismiss failed jobs"),
+  });
   const restore = useMutation({
     mutationFn: (jobId: string) => api<Job>(`/projects/${projectId}/jobs/${jobId}/restore`, { method: "POST" }),
     onSuccess: () => {
@@ -60,13 +71,18 @@ export function DeadLetterPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Dead letter</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            These jobs used their attempts and stayed on the original queue. Retry runs the same job again. It does not create a second one. Dismiss takes a failed job off this list and leaves it failed. Restore puts it back. Retry failed skips dismissed jobs.
+            These jobs used their attempts and stayed on the original queue. Retry runs the same job again. It does not create a second one. Dismiss takes a failed job off this list and leaves it failed. Dismiss failed does that for the oldest jobs still listed, up to 20. Restore puts one back. Retry failed skips dismissed jobs.
           </p>
         </div>
         {dismissed ? null : (
-          <Button disabled={rows.length === 0 || retry.isPending} loading={retry.isPending} onClick={() => retry.mutate()}>
-            Retry failed
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" disabled={rows.length === 0 || dismissFailed.isPending} loading={dismissFailed.isPending} onClick={() => dismissFailed.mutate()}>
+              Dismiss failed
+            </Button>
+            <Button disabled={rows.length === 0 || retry.isPending} loading={retry.isPending} onClick={() => retry.mutate()}>
+              Retry failed
+            </Button>
+          </div>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
