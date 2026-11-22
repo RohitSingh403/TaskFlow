@@ -23,6 +23,7 @@ import {
   isHandlerName,
   CANCEL_QUEUED_LIMIT,
   PROMOTE_DELAYED_LIMIT,
+  QUEUED_PRIORITY_LIMIT,
   DEAD_LETTER_RETRY_LIMIT,
   MAX_PAYLOAD_BYTES,
   priorityToBull,
@@ -482,6 +483,39 @@ export async function updateJobPriority(
     data: { jobId: job.publicId, status: job.status, queue: job.queueName },
   });
   return job;
+}
+
+export async function updateQueuedPriorities(
+  project: ProjectDoc,
+  input: { queue?: string; priority: PriorityLabel; limit?: number },
+  auth: AuthContext,
+) {
+  if (input.queue) {
+    const queue = await QueueConfig.findOne({ projectId: project._id, name: input.queue, deletedAt: null });
+    if (!queue) throw new AppError(404, "QUEUE_NOT_FOUND", "Queue not found");
+  }
+  const limit = Math.min(input.limit ?? 20, QUEUED_PRIORITY_LIMIT);
+  const queued = await JobRecord.find({
+    projectId: project._id,
+    status: { $in: ["waiting", "delayed"] },
+    priority: { $ne: input.priority },
+    ...(input.queue ? { queueName: input.queue } : {}),
+  }).sort({ createdAt: 1 }).limit(limit);
+  const jobIds: string[] = [];
+  let skipped = 0;
+  for (const record of queued) {
+    try {
+      await updateJobPriority(project, record.publicId, { priority: input.priority }, auth);
+      jobIds.push(record.publicId);
+    } catch (error) {
+      if (error instanceof AppError && error.status === 409) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { updated: jobIds.length, skipped, jobIds };
 }
 
 export async function moveJob(project: ProjectDoc, jobId: string, input: { queue: string }, auth: AuthContext) {

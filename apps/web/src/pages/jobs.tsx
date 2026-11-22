@@ -14,6 +14,7 @@ export function JobsPage() {
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
   const [params, setParams] = useSearchParams();
+  const [nextPriority, setNextPriority] = useState("high");
   const page = Number(params.get("page") ?? "1");
   const status = params.get("status") ?? "";
   const queue = params.get("queue") ?? "";
@@ -39,6 +40,18 @@ export function JobsPage() {
     queryKey: ["queues", projectId],
     enabled: Boolean(projectId),
     queryFn: () => api<Queue[]>(`/projects/${projectId}/queues`),
+  });
+  const setQueuedPriority = useMutation({
+    mutationFn: () => api<{ updated: number; skipped: number }>(`/projects/${projectId}/jobs/priority`, {
+      method: "POST",
+      body: JSON.stringify(queue ? { queue, priority: nextPriority, limit: 20 } : { priority: nextPriority, limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.updated;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Updated 1 job" : `Updated ${count} jobs`);
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not update the priority"),
   });
   const promoteDelayed = useMutation({
     mutationFn: () => api<{ promoted: number; skipped: number }>(`/projects/${projectId}/jobs/promote-delayed`, {
@@ -77,9 +90,15 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Run delayed runs the oldest delayed jobs now, up to 20, and keeps each job id. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Set priority changes the oldest waiting and delayed jobs, up to 20, and keeps each job id. A job that already has that priority is left alone. Run delayed runs the oldest delayed jobs now. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <SelectInput className="w-32" value={nextPriority} onChange={(event) => setNextPriority(event.target.value)} aria-label="Queued priority">
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </SelectInput>
+          <Button variant="secondary" loading={setQueuedPriority.isPending} onClick={() => setQueuedPriority.mutate()}>Set priority</Button>
           <Button variant="secondary" loading={promoteDelayed.isPending} onClick={() => promoteDelayed.mutate()}>Run delayed</Button>
           <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
         </div>
