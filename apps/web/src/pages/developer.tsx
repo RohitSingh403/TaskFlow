@@ -216,6 +216,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],
     ["PATCH", "/projects/:id/api-keys/:keyId", "Rename an API key and keep its secret"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
+    ["DELETE", "/projects/:id/queues/:queueId", "Remove an empty queue that nothing still uses"],
   ];
   return (
     <div className="space-y-4">

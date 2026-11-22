@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError, api } from "@/lib/api";
 import type { Job, Queue } from "@/lib/types";
 import { useSession, useUi } from "@/stores/session";
@@ -13,6 +13,7 @@ export function QueuesPage() {
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [removeId, setRemoveId] = useState<string | null>(null);
   const queues = useQuery({
     queryKey: ["queues", projectId],
     enabled: Boolean(projectId),
@@ -28,13 +29,22 @@ export function QueuesPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not create the queue"),
   });
+  const remove = useMutation({
+    mutationFn: (queueId: string) => api(`/projects/${projectId}/queues/${queueId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast("success", "Queue deleted");
+      setRemoveId(null);
+      void client.invalidateQueries({ queryKey: ["queues", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not delete the queue"),
+  });
   if (!projectId) return <EmptyState title="Choose a project" body="Queues belong to a project." />;
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Queues</h1>
-          <p className="text-[13px] text-muted">Counts are read from BullMQ. Configuration is stored with the project.</p>
+          <p className="max-w-2xl text-[13px] text-muted">Counts are read from BullMQ. Delete removes an empty queue. Waiting, delayed, active, and paused jobs keep it, and so does a schedule or workflow that still uses it.</p>
         </div>
         <Button onClick={() => setOpen(true)}>New queue</Button>
       </div>
@@ -58,13 +68,22 @@ export function QueuesPage() {
                   <td className="px-4 py-2">{queue.stats?.completed ?? 0}</td>
                   <td className="px-4 py-2">{queue.stats?.failed ?? 0}</td>
                   <td className="px-4 py-2">{queue.concurrency}</td>
-                  <td className="px-4 py-2 text-right"><QueueToggle queue={queue} /></td>
+                  <td className="px-4 py-2 text-right">
+                    <Button variant="ghost" size="sm" onClick={() => setRemoveId(queue.id)}>Delete</Button>
+                    <QueueToggle queue={queue} />
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </Card>
+      <Dialog open={Boolean(removeId)} title="Delete queue" description="The queue leaves the project. Finished and failed job records stay. This is refused while jobs are still queued or a schedule or workflow uses the queue." onClose={() => setRemoveId(null)}>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setRemoveId(null)}>Cancel</Button>
+          <Button variant="danger" loading={remove.isPending} onClick={() => removeId && remove.mutate(removeId)}>Delete queue</Button>
+        </div>
+      </Dialog>
       <Dialog open={open} title="Create queue" onClose={() => setOpen(false)}>
         <form
           className="space-y-3"
@@ -98,7 +117,9 @@ export function QueuesPage() {
 
 export function QueueDetailPage() {
   const { queueId = "" } = useParams();
+  const navigate = useNavigate();
   const projectId = useSession((state) => state.projectId);
+  const [removeOpen, setRemoveOpen] = useState(false);
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
   const queue = useQuery({
@@ -119,6 +140,15 @@ export function QueueDetailPage() {
     },
     onError: (reason) => toast("error", reason instanceof Error ? reason.message : "Update failed"),
   });
+  const remove = useMutation({
+    mutationFn: () => api(`/projects/${projectId}/queues/${queueId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      toast("success", "Queue deleted");
+      void client.invalidateQueries({ queryKey: ["queues", projectId] });
+      navigate("/queues");
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not delete the queue"),
+  });
   if (!queue.data) return <p className="text-[13px] text-muted">Loading queue…</p>;
   const data = queue.data.data;
   return (
@@ -131,6 +161,7 @@ export function QueueDetailPage() {
         </div>
         <div className="flex items-center gap-2">
           <HealthPill value={data.status === "paused" ? "paused" : "running"} />
+          <Button variant="ghost" size="sm" onClick={() => setRemoveOpen(true)}>Delete</Button>
           <QueueToggle queue={data} />
         </div>
       </div>
@@ -168,6 +199,12 @@ export function QueueDetailPage() {
         </form>
         <p className="mt-3 text-[12px] text-muted">Concurrency is how many jobs run at once. Rate limiting is how many may start inside the window. They are separate controls.</p>
       </Card>
+      <Dialog open={removeOpen} title="Delete queue" description="The queue leaves the project. Finished and failed job records stay. This is refused while jobs are still queued or a schedule or workflow uses the queue." onClose={() => setRemoveOpen(false)}>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setRemoveOpen(false)}>Cancel</Button>
+          <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>Delete queue</Button>
+        </div>
+      </Dialog>
       <Card>
         <div className="px-4 py-3 text-base font-semibold">Recent jobs</div>
         <JobTable jobs={jobs.data?.data ?? []} />

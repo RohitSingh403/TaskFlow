@@ -168,6 +168,8 @@ TaskFlow POSTs the same JSON body on every attempt. Headers are `TaskFlow-Delive
 
 ## Queues
 
+`DELETE /projects/:projectId/queues/:queueId` removes the queue from the project. Waiting, delayed, active, and paused jobs return `409` `QUEUE_NOT_EMPTY`. Pausing the queue does not make those jobs disappear. A schedule or workflow that still names the queue returns `409` `QUEUE_IN_USE`. Finished and failed job records stay and keep their ids. The name can be used again after the delete.
+
 `POST /projects/:projectId/queues/:queueId/pause` and `/resume`.
 
 `PATCH` accepts `description`, `concurrency` (1–100), `maxWaiting`, and `rateLimit` (`{ max, duration }` or `null`). `rateLimit.duration` is a window in milliseconds. Concurrency is simultaneous work. The rate limit is admissions per window.
