@@ -1,5 +1,5 @@
 import { ApiKey, AuditLog, createApiKeySecret, createId, type ProjectDoc } from "@taskflow/server";
-import type { ApiScope } from "@taskflow/shared";
+import { API_SCOPES, type ApiScope } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 
 export async function listApiKeys(project: ProjectDoc) {
@@ -38,15 +38,20 @@ export async function createApiKey(
 export async function updateApiKey(
   project: ProjectDoc,
   keyId: string,
-  input: { name?: string; description?: string },
+  input: { name?: string; description?: string; scopes?: ApiScope[] },
   actorId: string,
 ) {
   const key = await ApiKey.findOne({ projectId: project._id, publicId: keyId });
   if (!key) throw new AppError(404, "API_KEY_NOT_FOUND", "API key not found");
-  if (key.revokedAt) throw new AppError(409, "API_KEY_REVOKED", "A revoked key cannot be renamed");
+  if (key.revokedAt) throw new AppError(409, "API_KEY_REVOKED", "A revoked key cannot be changed");
   const previousName = key.name;
+  const previousScopes = [...key.scopes];
   if (input.name) key.name = input.name.trim();
   if (typeof input.description === "string") key.description = input.description.trim();
+  if (input.scopes) {
+    const selected = new Set(input.scopes);
+    key.scopes = API_SCOPES.filter((scope) => selected.has(scope));
+  }
   await key.save();
   await AuditLog.create({
     projectId: project._id,
@@ -55,7 +60,11 @@ export async function updateApiKey(
     action: "api_key.updated",
     targetType: "api_key",
     targetId: key.publicId,
-    metadata: { name: key.name, previousName },
+    metadata: {
+      name: key.name,
+      previousName,
+      ...(input.scopes ? { scopes: key.scopes, previousScopes } : {}),
+    },
   });
   return key;
 }

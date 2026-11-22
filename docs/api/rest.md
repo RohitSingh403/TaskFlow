@@ -26,7 +26,7 @@ Refresh tokens are `HttpOnly` cookies on `/api/v1/auth`, `SameSite=Lax`. The raw
 
 API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `workers:read`, `logs:read`, `analytics:read`. Creating keys, projects, and profile changes requires a user session. `POST /projects/:projectId/api-keys` accepts `expiresInDays` from 1 to 365. Leave it out and the key stays valid until it is revoked. An expired key returns `401` `API_KEY_EXPIRED`. Revoking a key still returns `401` `UNAUTHORIZED`.
 
-`PATCH /projects/:projectId/api-keys/:keyId` changes the name or description. The key id, prefix, hash, scopes, and expiry stay, so callers keep the same secret. A name shorter than 2 characters returns `400` `VALIDATION_ERROR`. A revoked key returns `409` `API_KEY_REVOKED`. A member receives `403` `OWNER_REQUIRED`.
+`PATCH /projects/:projectId/api-keys/:keyId` changes the name, description, or scopes. The key id, prefix, hash, and expiry stay, so callers keep the same secret. `scopes` replaces the whole list. Duplicate entries are stored once, in the platform's scope order. An empty list or an unknown scope returns `400` `VALIDATION_ERROR`. A name shorter than 2 characters returns the same code. A revoked key returns `409` `API_KEY_REVOKED`. A member receives `403` `OWNER_REQUIRED`.
 
 ## Projects
 

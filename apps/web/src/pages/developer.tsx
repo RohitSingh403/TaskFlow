@@ -14,6 +14,7 @@ export function ApiKeysPage() {
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ApiKey | null>(null);
+  const [scoping, setScoping] = useState<ApiKey | null>(null);
   const [secret, setSecret] = useState("");
   const keys = useQuery({
     queryKey: ["api-keys", projectId],
@@ -43,7 +44,7 @@ export function ApiKeysPage() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">API keys</h1>
-          <p className="text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. Rename changes the label and keeps that secret. A key can expire after 1 to 365 days, or stay valid until it is revoked.</p>
+          <p className="text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. Edit changes the label and keeps that secret. Scopes changes what the same secret can do. A key can expire after 1 to 365 days, or stay valid until it is revoked.</p>
         </div>
         <Button onClick={() => setOpen(true)}>Create key</Button>
       </div>
@@ -78,6 +79,7 @@ export function ApiKeysPage() {
                   {key.status === "revoked" ? null : (
                     <>
                       <Button size="sm" variant="ghost" onClick={() => setEditing(key)}>Edit</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setScoping(key)}>Scopes</Button>
                       <Button size="sm" variant="danger" onClick={() => revoke.mutate(key.id)}>Revoke</Button>
                     </>
                   )}
@@ -88,6 +90,7 @@ export function ApiKeysPage() {
         </table>
       </Card>
       <EditApiKey apiKey={editing} projectId={projectId} onClose={() => setEditing(null)} />
+      <EditApiKeyScopes apiKey={scoping} projectId={projectId} onClose={() => setScoping(null)} />
       <Dialog open={open} title="Create API key" onClose={() => setOpen(false)}>
         <form
           className="space-y-3"
@@ -123,6 +126,70 @@ export function ApiKeysPage() {
         </form>
       </Dialog>
     </div>
+  );
+}
+
+function EditApiKeyScopes({ apiKey, projectId, onClose }: { apiKey: ApiKey | null; projectId: string; onClose: () => void }) {
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!apiKey) return;
+    setSelected(apiKey.scopes);
+    setError("");
+  }, [apiKey]);
+  const save = useMutation({
+    mutationFn: () => api<ApiKey>(`/projects/${projectId}/api-keys/${apiKey?.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ scopes: SCOPES.filter((scope) => selected.includes(scope)) }),
+    }),
+    onSuccess: () => {
+      toast("success", "API key scopes updated");
+      setError("");
+      onClose();
+      void client.invalidateQueries({ queryKey: ["api-keys", projectId] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : "Could not update the scopes"),
+  });
+  return (
+    <Dialog open={Boolean(apiKey)} title="Edit scopes" description="The secret and the key id stay. Callers keep the same key, with these scopes." onClose={onClose}>
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (selected.length === 0) {
+            setError("Choose at least one scope");
+            return;
+          }
+          save.mutate();
+        }}
+      >
+        <fieldset>
+          <legend className="mb-2 text-[12px] text-muted">Scopes</legend>
+          <div className="grid grid-cols-2 gap-2 text-[13px]">
+            {SCOPES.map((scope) => (
+              <label key={scope} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name={scope}
+                  checked={selected.includes(scope)}
+                  onChange={(event) => {
+                    setSelected((current) => event.target.checked ? [...current, scope] : current.filter((item) => item !== scope));
+                  }}
+                />
+                {scope}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={save.isPending}>Save</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
@@ -215,7 +282,7 @@ export function DocsPage() {
     ["GET", "/projects/:id/billing", "Read this month's job allowance"],
     ["PATCH", "/projects/:id", "Change project settings, including job retention"],
     ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],
-    ["PATCH", "/projects/:id/api-keys/:keyId", "Rename an API key and keep its secret"],
+    ["PATCH", "/projects/:id/api-keys/:keyId", "Change an API key's name or scopes and keep its secret"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
     ["DELETE", "/projects/:id/queues/:queueId", "Remove an empty queue that nothing still uses"],
   ];
