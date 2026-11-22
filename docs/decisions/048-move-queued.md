@@ -1,0 +1,5 @@
+# Queued jobs can move together
+
+A queue can fill with jobs that belong on another queue. Moving each one is the wrong tool. `POST /jobs/move` takes a destination queue, an optional source queue, and a limit from 1 to 50. It reads the oldest waiting and delayed jobs that are not already on the destination and uses the same move as a single job. Each job id stays. The delay, priority, idempotency key, and schedule stay with it.
+
+A workflow step stays on the queue that owns its run. A job already on the destination is left alone, so a second call does not move it again. An active, completed, failed, or cancelled job is left alone. An unknown queue returns `404` `QUEUE_NOT_FOUND`. Naming the same queue as both source and destination returns `400` `VALIDATION_ERROR`. The destination's waiting ceiling still applies. When it is full, the call returns `429` `QUEUE_BACKPRESSURE`. The monthly allowance does not change, because no new job is inserted. The caller repeats the request when more than 50 jobs remain.

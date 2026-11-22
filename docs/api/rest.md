@@ -79,6 +79,8 @@ Lists also accept `dismissed=true` or `dismissed=false`. Omitting it returns bot
 
 `POST /projects/:projectId/jobs/:jobId/queue` with `{ "queue": "reports" }` moves a waiting or delayed job onto another queue in the same project. The same job id stays, along with its delay, priority, idempotency key, and schedule. This does not count toward the monthly allowance. The destination queue's waiting ceiling still applies and returns `429` `QUEUE_BACKPRESSURE` when it is full; the job stays on its current queue. Naming the queue the job is already on leaves that job as it is. A workflow step returns `409` `WORKFLOW_JOB`. An unknown queue returns `404` `QUEUE_NOT_FOUND`. An active, completed, failed, or cancelled job returns `409` `JOB_NOT_QUEUED`.
 
+`POST /projects/:projectId/jobs/move` with `{ "queue": "reports", "from": "emails", "limit": 20 }` moves the oldest waiting and delayed jobs onto that queue, up to 50. Each job keeps its id, delay, priority, and idempotency key. Leave `from` out to include every other queue. A workflow step stays on its queue. A job already on the destination is left alone. A second call does not move those jobs again. An unknown queue returns `404` `QUEUE_NOT_FOUND`. Naming the same queue in `queue` and `from`, or a limit outside 1 to 50, returns `400` `VALIDATION_ERROR`. A full destination returns `429` `QUEUE_BACKPRESSURE`. This does not count toward the monthly allowance.
+
 `_simulate` is allowed only when the project environment is `development`:
 
 ```json

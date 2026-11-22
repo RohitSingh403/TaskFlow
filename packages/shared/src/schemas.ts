@@ -161,6 +161,14 @@ export const moveJobSchema = z.object({
   queue: z.string().trim().regex(QUEUE_NAME_PATTERN),
 });
 
+export const moveQueuedJobsSchema = z
+  .object({
+    queue: z.string().trim().regex(QUEUE_NAME_PATTERN),
+    from: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
+    limit: z.number().int().min(1).max(50).default(20),
+  })
+  .refine((value) => value.from !== value.queue, { message: "Choose a different queue" });
+
 export const listJobsQuerySchema = z
   .object({
     status: z.enum(["waiting", "delayed", "active", "completed", "failed", "cancelled"]).optional(),
