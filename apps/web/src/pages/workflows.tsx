@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { JobStatusPill } from "@/components/status";
 import { Button, Card, Dialog, EmptyState, Field, SelectInput, TextInput } from "@/components/ui";
@@ -38,6 +38,7 @@ export function WorkflowsPage() {
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Workflow | null>(null);
   const [removeId, setRemoveId] = useState<string | null>(null);
   const workflows = useQuery({
     queryKey: ["workflows", projectId],
@@ -63,7 +64,7 @@ export function WorkflowsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Workflows</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Cancel removes the steps that are still waiting and keeps the run id.
+            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. The steps and existing runs stay. Cancel removes the steps that are still waiting and keeps the run id.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New workflow</Button>
@@ -96,6 +97,7 @@ export function WorkflowsPage() {
                   <td className="px-4 py-3">{workflow.lastRun ? <JobStatusPill status={workflow.lastRun.status} /> : "—"}</td>
                   <td className="px-4 py-3">{formatDuration(workflow.lastRun?.durationMs)}</td>
                   <td className="px-4 py-3 text-right">
+                    <Button variant="ghost" size="sm" onClick={() => setEditing(workflow)}>Edit</Button>
                     <Button variant="ghost" size="sm" onClick={() => setRemoveId(workflow.id)}>Delete</Button>
                   </td>
                 </tr>
@@ -105,6 +107,7 @@ export function WorkflowsPage() {
         </Card>
       ) : null}
       {open ? <CreateWorkflow onClose={() => setOpen(false)} /> : null}
+      <EditWorkflow workflow={editing} onClose={() => setEditing(null)} />
       <Dialog open={Boolean(removeId)} title="Delete workflow" onClose={() => setRemoveId(null)}>
         <p className="text-[13px] text-muted">Existing runs stay in history. New runs stop being accepted.</p>
         <div className="mt-4 flex justify-end gap-2">
@@ -113,6 +116,52 @@ export function WorkflowsPage() {
         </div>
       </Dialog>
     </div>
+  );
+}
+
+function EditWorkflow({ workflow, onClose }: { workflow: Workflow | null; onClose: () => void }) {
+  const projectId = useSession((state) => state.projectId);
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!workflow) return;
+    setName(workflow.name);
+    setDescription(workflow.description);
+    setError("");
+  }, [workflow]);
+  const save = useMutation({
+    mutationFn: () => api<Workflow>(`/projects/${projectId}/workflows/${workflow?.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name, description }),
+    }),
+    onSuccess: () => {
+      toast("success", "Workflow updated");
+      setError("");
+      onClose();
+      void client.invalidateQueries({ queryKey: ["workflows", projectId] });
+      void client.invalidateQueries({ queryKey: ["workflow", projectId, workflow?.id] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : "Could not update the workflow"),
+  });
+  return (
+    <Dialog open={Boolean(workflow)} title="Edit workflow" description="The workflow id and steps stay. Existing runs stay on this workflow." onClose={onClose}>
+      <form className="space-y-3" onSubmit={(event) => { event.preventDefault(); save.mutate(); }}>
+        <Field label="Name">
+          <TextInput value={name} onChange={(event) => setName(event.target.value)} aria-label="Workflow name" required minLength={2} />
+        </Field>
+        <Field label="Description">
+          <TextInput value={description} onChange={(event) => setDescription(event.target.value)} aria-label="Workflow description" />
+        </Field>
+        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={save.isPending}>Save</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 
@@ -282,6 +331,7 @@ export function WorkflowDetailPage() {
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not start the workflow"),
   });
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [editing, setEditing] = useState<Workflow | null>(null);
   const cancel = useMutation({
     mutationFn: (id: string) => api<WorkflowRun>(`/projects/${projectId}/workflows/${workflowId}/runs/${id}/cancel`, { method: "POST" }),
     onSuccess: () => {
@@ -319,7 +369,10 @@ export function WorkflowDetailPage() {
           <h1 className="text-[28px] font-semibold tracking-tight">{definition?.name ?? "Workflow"}</h1>
           <p className="max-w-2xl text-[13px] text-muted">{definition?.description}</p>
         </div>
-        <Button onClick={() => start.mutate()} loading={start.isPending}>Run</Button>
+        <div className="flex items-center gap-2">
+          {definition ? <Button variant="secondary" onClick={() => setEditing(definition)}>Edit</Button> : null}
+          <Button onClick={() => start.mutate()} loading={start.isPending}>Run</Button>
+        </div>
       </div>
       {definition ? (
         <Card className="space-y-3 p-4">
@@ -396,6 +449,7 @@ export function WorkflowDetailPage() {
       ) : (
         <EmptyState title="No run yet" body="Run the workflow to create one job per step. Later steps stay waiting until the steps they depend on complete." />
       )}
+      <EditWorkflow workflow={editing} onClose={() => setEditing(null)} />
       <Dialog open={cancelOpen} title="Cancel this run" description="Waiting and delayed steps are removed from their queues. Completed and failed steps stay. A step that is already running cannot be cancelled." onClose={() => setCancelOpen(false)}>
         <div className="flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setCancelOpen(false)}>Keep</Button>

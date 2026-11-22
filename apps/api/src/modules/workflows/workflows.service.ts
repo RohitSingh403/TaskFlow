@@ -185,6 +185,8 @@ export async function updateWorkflow(
 ) {
   const workflow = await Workflow.findOne({ projectId: project._id, publicId: workflowId, deletedAt: null }) as WorkflowDoc | null;
   if (!workflow) throw new AppError(404, "WORKFLOW_NOT_FOUND", "Workflow not found");
+  const previousName = workflow.name;
+  const previousDescription = workflow.description ?? "";
   if (input.name) workflow.name = input.name.trim();
   if (typeof input.description === "string") workflow.description = input.description.trim();
   try {
@@ -200,7 +202,10 @@ export async function updateWorkflow(
     action: "workflow.updated",
     targetType: "workflow",
     targetId: workflow.publicId,
-    metadata: {},
+    metadata: {
+      ...(workflow.name !== previousName ? { name: workflow.name, previousName } : {}),
+      ...(workflow.description !== previousDescription ? { description: workflow.description, previousDescription } : {}),
+    },
   });
   return workflow;
 }
