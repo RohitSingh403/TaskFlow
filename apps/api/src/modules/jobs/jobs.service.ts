@@ -22,6 +22,7 @@ import {
   handlerSchemas,
   isHandlerName,
   CANCEL_QUEUED_LIMIT,
+  PROMOTE_DELAYED_LIMIT,
   DEAD_LETTER_RETRY_LIMIT,
   MAX_PAYLOAD_BYTES,
   priorityToBull,
@@ -662,6 +663,38 @@ export async function restoreDismissedJobs(
     }
   }
   return { restored: jobIds.length, skipped, jobIds };
+}
+
+export async function promoteDelayedJobs(
+  project: ProjectDoc,
+  input: { queue?: string; limit?: number },
+  auth: AuthContext,
+) {
+  if (input.queue) {
+    const queue = await QueueConfig.findOne({ projectId: project._id, name: input.queue, deletedAt: null });
+    if (!queue) throw new AppError(404, "QUEUE_NOT_FOUND", "Queue not found");
+  }
+  const limit = Math.min(input.limit ?? 20, PROMOTE_DELAYED_LIMIT);
+  const delayed = await JobRecord.find({
+    projectId: project._id,
+    status: "delayed",
+    ...(input.queue ? { queueName: input.queue } : {}),
+  }).sort({ createdAt: 1 }).limit(limit);
+  const jobIds: string[] = [];
+  let skipped = 0;
+  for (const record of delayed) {
+    try {
+      await promoteJob(project, record.publicId, auth);
+      jobIds.push(record.publicId);
+    } catch (error) {
+      if (error instanceof AppError && error.status === 409) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { promoted: jobIds.length, skipped, jobIds };
 }
 
 export async function cancelQueuedJobs(

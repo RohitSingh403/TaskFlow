@@ -40,6 +40,18 @@ export function JobsPage() {
     enabled: Boolean(projectId),
     queryFn: () => api<Queue[]>(`/projects/${projectId}/queues`),
   });
+  const promoteDelayed = useMutation({
+    mutationFn: () => api<{ promoted: number; skipped: number }>(`/projects/${projectId}/jobs/promote-delayed`, {
+      method: "POST",
+      body: JSON.stringify(queue ? { queue, limit: 20 } : { limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.promoted;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Ran 1 delayed job" : `Ran ${count} delayed jobs`);
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not run delayed jobs"),
+  });
   const cancelQueued = useMutation({
     mutationFn: () => api<{ cancelled: number; skipped: number }>(`/projects/${projectId}/jobs/cancel-queued`, {
       method: "POST",
@@ -65,9 +77,12 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Run delayed runs the oldest delayed jobs now, up to 20, and keeps each job id. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
         </div>
-        <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" loading={promoteDelayed.isPending} onClick={() => promoteDelayed.mutate()}>Run delayed</Button>
+          <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
+        </div>
       </div>
       <div className="flex flex-wrap gap-2">
         <SelectInput className="w-40" value={status} onChange={(event) => update("status", event.target.value)} aria-label="Status">

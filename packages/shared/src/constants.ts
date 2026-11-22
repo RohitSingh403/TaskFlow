@@ -26,6 +26,7 @@ export const MAX_WEBHOOKS_PER_PROJECT = 10;
 export const MAX_PROJECT_MEMBERS = 20;
 export const DEAD_LETTER_RETRY_LIMIT = 50;
 export const CANCEL_QUEUED_LIMIT = 50;
+export const PROMOTE_DELAYED_LIMIT = 50;
 export const BILLING_PLANS = ["developer", "scale"] as const;
 export type BillingPlan = (typeof BILLING_PLANS)[number];
 export const PLAN_JOB_ALLOWANCE: Record<BillingPlan, number> = {
