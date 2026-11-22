@@ -14,6 +14,7 @@ import {
   getWorkflowRun,
   listWorkflowRuns,
   listWorkflows,
+  setWorkflowPaused,
   startWorkflowRun,
   updateWorkflow,
 } from "./workflows.service.js";
@@ -61,6 +62,26 @@ workflowRouter.patch(
   validateBody(updateWorkflowSchema),
   asyncHandler(async (req, res) => {
     const workflow = await updateWorkflow(req.project!, String(req.params.workflowId), req.body, req.auth!);
+    sendOk(res, toWorkflow(workflow));
+  }),
+);
+
+workflowRouter.post(
+  "/:workflowId/pause",
+  writeLimiter,
+  requireScope("jobs:write"),
+  asyncHandler(async (req, res) => {
+    const workflow = await setWorkflowPaused(req.project!, String(req.params.workflowId), true, req.auth!);
+    sendOk(res, toWorkflow(workflow));
+  }),
+);
+
+workflowRouter.post(
+  "/:workflowId/resume",
+  writeLimiter,
+  requireScope("jobs:write"),
+  asyncHandler(async (req, res) => {
+    const workflow = await setWorkflowPaused(req.project!, String(req.params.workflowId), false, req.auth!);
     sendOk(res, toWorkflow(workflow));
   }),
 );

@@ -210,6 +210,30 @@ export async function updateWorkflow(
   return workflow;
 }
 
+export async function setWorkflowPaused(project: ProjectDoc, workflowId: string, paused: boolean, auth: AuthContext) {
+  const workflow = await Workflow.findOne({ projectId: project._id, publicId: workflowId, deletedAt: null }) as WorkflowDoc | null;
+  if (!workflow) throw new AppError(404, "WORKFLOW_NOT_FOUND", "Workflow not found");
+  if (Boolean(workflow.paused) === paused) {
+    throw new AppError(
+      409,
+      paused ? "WORKFLOW_PAUSED" : "WORKFLOW_NOT_PAUSED",
+      paused ? "This workflow is already paused" : "This workflow is not paused",
+    );
+  }
+  workflow.paused = paused;
+  await workflow.save();
+  await AuditLog.create({
+    projectId: project._id,
+    actorType: auth.type,
+    actorId: auth.userPublicId,
+    action: paused ? "workflow.paused" : "workflow.resumed",
+    targetType: "workflow",
+    targetId: workflow.publicId,
+    metadata: { name: workflow.name },
+  });
+  return workflow;
+}
+
 export async function deleteWorkflow(project: ProjectDoc, workflowId: string, auth: AuthContext) {
   const workflow = await Workflow.findOne({ projectId: project._id, publicId: workflowId, deletedAt: null }) as WorkflowDoc | null;
   if (!workflow) throw new AppError(404, "WORKFLOW_NOT_FOUND", "Workflow not found");
@@ -229,6 +253,7 @@ export async function deleteWorkflow(project: ProjectDoc, workflowId: string, au
 export async function startWorkflowRun(project: ProjectDoc, workflowId: string, auth: AuthContext) {
   const workflow = await Workflow.findOne({ projectId: project._id, publicId: workflowId, deletedAt: null }) as WorkflowDoc | null;
   if (!workflow) throw new AppError(404, "WORKFLOW_NOT_FOUND", "Workflow not found");
+  if (workflow.paused) throw new AppError(409, "WORKFLOW_PAUSED", "This workflow is paused. Resume it before starting a run.");
   try {
     await assertJobAllowance(project, workflow.steps.length);
   } catch (error) {

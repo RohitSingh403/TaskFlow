@@ -121,6 +121,7 @@ export function toWorkflow(
     id: workflow.publicId,
     name: workflow.name,
     description: workflow.description ?? "",
+    paused: Boolean(workflow.paused),
     root: graph.ok ? graph.root : null,
     executionOrder: graph.ok ? graph.executionOrder : workflow.steps.map((step) => step.key),
     steps: workflow.steps.map((step) => ({

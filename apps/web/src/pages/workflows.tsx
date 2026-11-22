@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { JobStatusPill } from "@/components/status";
+import { HealthPill, JobStatusPill } from "@/components/status";
 import { Button, Card, Dialog, EmptyState, Field, SelectInput, TextInput } from "@/components/ui";
 import { ApiError, api } from "@/lib/api";
 import { formatDuration, formatWhen } from "@/lib/format";
@@ -64,7 +64,7 @@ export function WorkflowsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Workflows</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. The steps and existing runs stay. Cancel removes the steps that are still waiting and keeps the run id.
+            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. Pause stops new runs and leaves the steps and runs that already started. Cancel removes the steps that are still waiting and keeps the run id.
           </p>
         </div>
         <Button onClick={() => setOpen(true)}>New workflow</Button>
@@ -90,7 +90,10 @@ export function WorkflowsPage() {
               {rows.map((workflow) => (
                 <tr key={workflow.id} className="border-b border-line/70">
                   <td className="px-4 py-3">
-                    <Link className="font-medium hover:text-accent" to={`/workflows/${workflow.id}`}>{workflow.name}</Link>
+                    <div className="flex items-center gap-2">
+                      <Link className="font-medium hover:text-accent" to={`/workflows/${workflow.id}`}>{workflow.name}</Link>
+                      {workflow.paused ? <HealthPill value="paused" /> : null}
+                    </div>
                     <div className="text-[12px] text-muted">{workflow.executionOrder.join(" → ")}</div>
                   </td>
                   <td className="px-4 py-3">{workflow.steps.length}</td>
@@ -98,6 +101,7 @@ export function WorkflowsPage() {
                   <td className="px-4 py-3">{formatDuration(workflow.lastRun?.durationMs)}</td>
                   <td className="px-4 py-3 text-right">
                     <Button variant="ghost" size="sm" onClick={() => setEditing(workflow)}>Edit</Button>
+                    <WorkflowPause workflow={workflow} />
                     <Button variant="ghost" size="sm" onClick={() => setRemoveId(workflow.id)}>Delete</Button>
                   </td>
                 </tr>
@@ -116,6 +120,26 @@ export function WorkflowsPage() {
         </div>
       </Dialog>
     </div>
+  );
+}
+
+function WorkflowPause({ workflow, variant = "ghost" }: { workflow: Workflow; variant?: "ghost" | "secondary" }) {
+  const projectId = useSession((state) => state.projectId);
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const toggle = useMutation({
+    mutationFn: () => api<Workflow>(`/projects/${projectId}/workflows/${workflow.id}/${workflow.paused ? "resume" : "pause"}`, { method: "POST" }),
+    onSuccess: () => {
+      toast("success", workflow.paused ? "Workflow resumed" : "Workflow paused");
+      void client.invalidateQueries({ queryKey: ["workflows", projectId] });
+      void client.invalidateQueries({ queryKey: ["workflow", projectId, workflow.id] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not update the workflow"),
+  });
+  return (
+    <Button variant={variant} size="sm" loading={toggle.isPending} onClick={() => toggle.mutate()}>
+      {workflow.paused ? "Resume" : "Pause"}
+    </Button>
   );
 }
 
@@ -366,11 +390,15 @@ export function WorkflowDetailPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <Link className="text-[12px] text-muted hover:text-ink" to="/workflows">Workflows</Link>
-          <h1 className="text-[28px] font-semibold tracking-tight">{definition?.name ?? "Workflow"}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-[28px] font-semibold tracking-tight">{definition?.name ?? "Workflow"}</h1>
+            {definition?.paused ? <HealthPill value="paused" /> : null}
+          </div>
           <p className="max-w-2xl text-[13px] text-muted">{definition?.description}</p>
         </div>
         <div className="flex items-center gap-2">
           {definition ? <Button variant="secondary" onClick={() => setEditing(definition)}>Edit</Button> : null}
+          {definition ? <WorkflowPause workflow={definition} variant="secondary" /> : null}
           <Button onClick={() => start.mutate()} loading={start.isPending}>Run</Button>
         </div>
       </div>
