@@ -38,7 +38,7 @@ export async function createApiKey(
 export async function updateApiKey(
   project: ProjectDoc,
   keyId: string,
-  input: { name?: string; description?: string; scopes?: ApiScope[] },
+  input: { name?: string; description?: string; scopes?: ApiScope[]; expiresInDays?: number | null },
   actorId: string,
 ) {
   const key = await ApiKey.findOne({ projectId: project._id, publicId: keyId });
@@ -46,11 +46,17 @@ export async function updateApiKey(
   if (key.revokedAt) throw new AppError(409, "API_KEY_REVOKED", "A revoked key cannot be changed");
   const previousName = key.name;
   const previousScopes = [...key.scopes];
+  const previousExpiresAt = key.expiresAt?.toISOString() ?? null;
   if (input.name) key.name = input.name.trim();
   if (typeof input.description === "string") key.description = input.description.trim();
   if (input.scopes) {
     const selected = new Set(input.scopes);
     key.scopes = API_SCOPES.filter((scope) => selected.has(scope));
+  }
+  if (input.expiresInDays === null) {
+    key.set("expiresAt", null);
+  } else if (typeof input.expiresInDays === "number") {
+    key.expiresAt = new Date(Date.now() + input.expiresInDays * 86_400_000);
   }
   await key.save();
   await AuditLog.create({
@@ -64,6 +70,7 @@ export async function updateApiKey(
       name: key.name,
       previousName,
       ...(input.scopes ? { scopes: key.scopes, previousScopes } : {}),
+      ...(input.expiresInDays !== undefined ? { expiresAt: key.expiresAt?.toISOString() ?? null, previousExpiresAt } : {}),
     },
   });
   return key;

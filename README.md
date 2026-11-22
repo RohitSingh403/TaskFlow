@@ -9,7 +9,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 ## What this version includes
 
 - Email and password accounts, Argon2id hashes, short-lived access tokens, and rotating refresh tokens stored only as SHA-256 hashes.
-- API keys stored as SHA-256 hashes. A key can expire after 1 to 365 days, or stay valid until the owner revokes it. Rename changes the label and keeps the secret. Scopes can change on that same key.
+- API keys stored as SHA-256 hashes. A key can expire after 1 to 365 days, or stay valid until the owner revokes it. Rename changes the label and keeps the secret. Scopes and expiry can change on that same key.
 - Projects with development and production environments. Development projects may simulate handler failures. Production projects reject that field.
 - Queues with concurrency, an optional rate limit, a waiting-job ceiling, and pause / resume. Delete removes an empty queue. Waiting, delayed, active, and paused jobs keep it, and so does a schedule or workflow that still uses it.
 - Job submission by session or API key, with priority, delay, timeout, retry, and idempotency keys.
@@ -176,7 +176,7 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | POST | `/projects/:id/alerts/resolve-open` | Resolve up to 50 open alerts and keep their ids |
 | POST | `/projects/:id/webhooks` | Register a signed webhook |
 | PATCH | `/projects/:id/webhooks/:webhookId` | Change a webhook URL or its events |
-| PATCH | `/projects/:id/api-keys/:keyId` | Change an API key's name or scopes and keep its secret |
+| PATCH | `/projects/:id/api-keys/:keyId` | Change an API key's name, scopes, or expiry and keep its secret |
 | POST | `/projects/:id/webhooks/:webhookId/rotate` | Replace the signing secret |
 | POST | `/projects/:id/webhooks/:webhookId/test` | Queue a signed test delivery |
 | GET | `/projects/:id/jobs/:jobId` | Job detail |

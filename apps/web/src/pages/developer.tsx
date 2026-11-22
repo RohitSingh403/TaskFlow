@@ -15,6 +15,7 @@ export function ApiKeysPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ApiKey | null>(null);
   const [scoping, setScoping] = useState<ApiKey | null>(null);
+  const [expiring, setExpiring] = useState<ApiKey | null>(null);
   const [secret, setSecret] = useState("");
   const keys = useQuery({
     queryKey: ["api-keys", projectId],
@@ -44,7 +45,7 @@ export function ApiKeysPage() {
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">API keys</h1>
-          <p className="text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. Edit changes the label and keeps that secret. Scopes changes what the same secret can do. A key can expire after 1 to 365 days, or stay valid until it is revoked.</p>
+          <p className="text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. Edit changes the label and keeps that secret. Scopes changes what the same secret can do. Expiry moves or clears the date and keeps that secret. A key can expire after 1 to 365 days, or stay valid until it is revoked.</p>
         </div>
         <Button onClick={() => setOpen(true)}>Create key</Button>
       </div>
@@ -80,6 +81,7 @@ export function ApiKeysPage() {
                     <>
                       <Button size="sm" variant="ghost" onClick={() => setEditing(key)}>Edit</Button>
                       <Button size="sm" variant="ghost" onClick={() => setScoping(key)}>Scopes</Button>
+                      <Button size="sm" variant="ghost" onClick={() => setExpiring(key)}>Expiry</Button>
                       <Button size="sm" variant="danger" onClick={() => revoke.mutate(key.id)}>Revoke</Button>
                     </>
                   )}
@@ -91,6 +93,7 @@ export function ApiKeysPage() {
       </Card>
       <EditApiKey apiKey={editing} projectId={projectId} onClose={() => setEditing(null)} />
       <EditApiKeyScopes apiKey={scoping} projectId={projectId} onClose={() => setScoping(null)} />
+      <EditApiKeyExpiry apiKey={expiring} projectId={projectId} onClose={() => setExpiring(null)} />
       <Dialog open={open} title="Create API key" onClose={() => setOpen(false)}>
         <form
           className="space-y-3"
@@ -193,6 +196,56 @@ function EditApiKeyScopes({ apiKey, projectId, onClose }: { apiKey: ApiKey | nul
   );
 }
 
+function EditApiKeyExpiry({ apiKey, projectId, onClose }: { apiKey: ApiKey | null; projectId: string; onClose: () => void }) {
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [days, setDays] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!apiKey) return;
+    setDays("");
+    setError("");
+  }, [apiKey]);
+  const save = useMutation({
+    mutationFn: () => api<ApiKey>(`/projects/${projectId}/api-keys/${apiKey?.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ expiresInDays: days.trim() === "" ? null : Number(days) }),
+    }),
+    onSuccess: () => {
+      toast("success", "API key expiry updated");
+      setError("");
+      onClose();
+      void client.invalidateQueries({ queryKey: ["api-keys", projectId] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : "Could not update the expiry"),
+  });
+  return (
+    <Dialog open={Boolean(apiKey)} title="Edit expiry" description="The secret and the key id stay. Leave this empty and the key stays valid until it is revoked. A number from 1 to 365 sets a new expiry from now." onClose={onClose}>
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (days.trim() !== "" && (!Number.isInteger(Number(days)) || Number(days) < 1 || Number(days) > 365)) {
+            setError("Use a whole number from 1 to 365, or leave the field empty");
+            return;
+          }
+          save.mutate();
+        }}
+      >
+        {apiKey?.expiresAt ? <p className="text-[12px] text-muted">Currently expires {formatWhen(apiKey.expiresAt)}.</p> : <p className="text-[12px] text-muted">This key does not expire.</p>}
+        <Field label="Expires in days">
+          <TextInput value={days} onChange={(event) => setDays(event.target.value)} aria-label="Expires in days" inputMode="numeric" placeholder="Never" />
+        </Field>
+        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={save.isPending}>Save</Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
 function EditApiKey({ apiKey, projectId, onClose }: { apiKey: ApiKey | null; projectId: string; onClose: () => void }) {
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
@@ -283,7 +336,7 @@ export function DocsPage() {
     ["GET", "/projects/:id/billing", "Read this month's job allowance"],
     ["PATCH", "/projects/:id", "Change project settings, including job retention"],
     ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],
-    ["PATCH", "/projects/:id/api-keys/:keyId", "Change an API key's name or scopes and keep its secret"],
+    ["PATCH", "/projects/:id/api-keys/:keyId", "Change an API key's name, scopes, or expiry and keep its secret"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
     ["DELETE", "/projects/:id/queues/:queueId", "Remove an empty queue that nothing still uses"],
   ];
