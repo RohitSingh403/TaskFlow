@@ -296,6 +296,11 @@ export const silenceAlertSchema = z.object({
   durationMs: z.number().int().min(5 * 60 * 1000).max(7 * 24 * 60 * 60 * 1000),
 });
 
+export const resolveOpenAlertsSchema = z.object({
+  ruleId: z.string().trim().min(4).max(40).optional(),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const listAlertsQuerySchema = z.object({
   status: z.enum(ALERT_STATUSES).optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),

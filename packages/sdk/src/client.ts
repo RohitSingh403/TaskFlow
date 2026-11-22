@@ -225,6 +225,8 @@ export class TaskFlow {
   readonly alerts = {
     list: async (query: { status?: "open" | "resolved"; limit?: number } = {}) => this.request<AlertResource[]>("GET", await this.projectPath("/alerts"), { query }),
     resolve: async (alertId: string) => this.request<AlertResource>("POST", await this.projectPath(`/alerts/${encodeURIComponent(alertId)}/resolve`)),
+    resolveOpen: async (input: { ruleId?: string; limit?: number } = {}) =>
+      this.request<{ resolved: number; skipped: number; alertIds: string[] }>("POST", await this.projectPath("/alerts/resolve-open"), { body: input }),
     rules: {
       list: async () => this.request<AlertRule[]>("GET", await this.projectPath("/alerts/rules")),
       create: async (input: Record<string, unknown>) => this.request<AlertRule>("POST", await this.projectPath("/alerts/rules"), { body: input }),

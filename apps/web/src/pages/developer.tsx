@@ -272,6 +272,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/alerts/rules", "Create a backlog, failure, offline, or long-running alert"],
     ["PATCH", "/projects/:id/alerts/rules/:ruleId", "Change an alert rule and keep its id"],
     ["POST", "/projects/:id/alerts/rules/:ruleId/silence", "Skip a rule until a chosen time"],
+    ["POST", "/projects/:id/alerts/resolve-open", "Resolve up to 50 open alerts and keep their ids"],
     ["POST", "/projects/:id/alerts/:alertId/resolve", "Mark an alert resolved"],
     ["POST", "/projects/:id/webhooks", "Register a signed outbound endpoint"],
     ["PATCH", "/projects/:id/webhooks/:webhookId", "Change a webhook URL or its events"],
