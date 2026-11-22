@@ -189,6 +189,37 @@ export async function redeliverWebhook(project: ProjectDoc, webhookId: string, d
   }
 }
 
+export async function redeliverFailedWebhooks(
+  project: ProjectDoc,
+  input: { webhookId?: string; limit?: number },
+  auth: AuthContext,
+) {
+  const filter: Record<string, unknown> = { projectId: project._id, status: "failed" };
+  if (input.webhookId) {
+    const webhook = await Webhook.findOne({ projectId: project._id, publicId: input.webhookId, deletedAt: null });
+    if (!webhook) throw new AppError(404, "WEBHOOK_NOT_FOUND", "Webhook not found");
+    if (!webhook.enabled) throw new AppError(409, "WEBHOOK_DISABLED", "The webhook endpoint is disabled");
+    filter.webhookId = webhook._id;
+  }
+  const limit = Math.min(input.limit ?? 20, 50);
+  const failed = await WebhookDelivery.find(filter).sort({ createdAt: 1 }).limit(limit);
+  const deliveryIds: string[] = [];
+  let skipped = 0;
+  for (const record of failed) {
+    try {
+      const queued = await redeliverWebhook(project, record.webhookPublicId, record.publicId, auth);
+      deliveryIds.push(queued.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.code === "DELIVERY_PENDING" || error.code === "WEBHOOK_DISABLED" || error.code === "WEBHOOK_NOT_FOUND" || error.code === "DELIVERY_NOT_FOUND")) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { redelivered: deliveryIds.length, skipped, deliveryIds };
+}
+
 export async function listWebhookDeliveries(project: ProjectDoc, webhookId?: string) {
   const filter: Record<string, unknown> = { projectId: project._id };
   if (webhookId) {
