@@ -328,6 +328,7 @@ const workflowSchema = new Schema(
     projectPublicId: { type: String, required: true },
     name: { type: String, required: true },
     description: { type: String, default: "" },
+    paused: { type: Boolean, default: false },
     steps: { type: [workflowStepSchema], required: true },
     deletedAt: { type: Date },
     createdBy: {

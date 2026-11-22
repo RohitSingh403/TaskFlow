@@ -114,6 +114,7 @@ export interface Workflow {
   id: string;
   name: string;
   description: string;
+  paused: boolean;
   root: string | null;
   executionOrder: string[];
   steps: WorkflowStep[];
