@@ -231,8 +231,17 @@ export const updateWorkflowSchema = z
   .object({
     name: z.string().trim().min(2).max(60).optional(),
     description: z.string().trim().max(280).optional(),
+    steps: z.array(workflowStepSchema).min(2).max(8).optional(),
   })
-  .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
+  .superRefine((value, context) => {
+    if (Object.keys(value).length === 0) {
+      context.addIssue({ code: z.ZodIssueCode.custom, message: "No changes were provided" });
+    }
+    if (value.steps) {
+      const graph = validateWorkflowGraph(value.steps);
+      if (!graph.ok) context.addIssue({ code: z.ZodIssueCode.custom, message: graph.message, path: ["steps"] });
+    }
+  });
 
 const alertName = z.string().trim().min(2).max(60);
 const alertCooldown = z.number().int().min(60_000).max(24 * 60 * 60 * 1000).default(DEFAULT_ALERT_COOLDOWN_MS);
