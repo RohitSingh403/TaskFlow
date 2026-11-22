@@ -1,4 +1,4 @@
-import { AuditLog, bullQueueName, createId, getBullQueue, QueueConfig, type ProjectDoc, type QueueDoc } from "@taskflow/server";
+import { AuditLog, bullQueueName, createId, getBullQueue, QueueConfig, Schedule, Workflow, type ProjectDoc, type QueueDoc } from "@taskflow/server";
 import { AppError } from "../../errors.js";
 import { publish } from "../../infrastructure.js";
 
@@ -86,9 +86,13 @@ export async function setQueuePaused(project: ProjectDoc, queue: QueueDoc, pause
 
 export async function deleteQueue(project: ProjectDoc, queue: QueueDoc, actorId: string) {
   const stats = await queueStats(queue);
-  if (stats.waiting + stats.active + stats.delayed > 0) {
-    throw new AppError(409, "QUEUE_NOT_EMPTY", "Pause is not enough: drain waiting and active jobs before deleting this queue");
+  if (stats.waiting + stats.active + stats.delayed + stats.paused > 0) {
+    throw new AppError(409, "QUEUE_NOT_EMPTY", "Drain waiting, delayed, and active jobs before deleting this queue. Pausing the queue is not enough.");
   }
+  const schedule = await Schedule.exists({ projectId: project._id, queuePublicId: queue.publicId, deletedAt: null });
+  if (schedule) throw new AppError(409, "QUEUE_IN_USE", "A schedule still uses this queue");
+  const workflow = await Workflow.exists({ projectId: project._id, deletedAt: null, "steps.queuePublicId": queue.publicId });
+  if (workflow) throw new AppError(409, "QUEUE_IN_USE", "A workflow still uses this queue");
   queue.deletedAt = new Date();
   queue.isPaused = true;
   await queue.save();
