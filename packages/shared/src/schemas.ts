@@ -114,6 +114,7 @@ export const updateApiKeySchema = z
     name: z.string().trim().min(2).max(60).optional(),
     description: z.string().trim().max(280).optional(),
     scopes: z.array(z.enum(API_SCOPES)).min(1).optional(),
+    expiresInDays: z.number().int().min(1).max(365).nullable().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
 
