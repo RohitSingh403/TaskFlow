@@ -84,6 +84,9 @@ export async function updateAlertRule(
 ) {
   const rule = await AlertRule.findOne({ projectId: project._id, publicId: ruleId, deletedAt: null }) as AlertRuleDoc | null;
   if (!rule) throw new AppError(404, "ALERT_NOT_FOUND", "Alert rule not found");
+  const previousName = rule.name;
+  const previousThreshold = rule.threshold;
+  const previousCooldownMs = rule.cooldownMs;
   if (input.threshold !== undefined) {
     if (rule.type === "worker.offline") throw new AppError(400, "VALIDATION_ERROR", "An offline-worker rule has no threshold");
     if (rule.type === "failure.rate" && input.threshold > 100) throw new AppError(400, "VALIDATION_ERROR", "Failure rate is a percentage from 1 to 100");
@@ -114,7 +117,11 @@ export async function updateAlertRule(
     action: "alert_rule.updated",
     targetType: "alert_rule",
     targetId: rule.publicId,
-    metadata: {},
+    metadata: {
+      ...(rule.name !== previousName ? { name: rule.name, previousName } : {}),
+      ...(rule.threshold !== previousThreshold ? { threshold: rule.threshold, previousThreshold } : {}),
+      ...(rule.cooldownMs !== previousCooldownMs ? { cooldownMs: rule.cooldownMs, previousCooldownMs } : {}),
+    },
   });
   return rule;
 }

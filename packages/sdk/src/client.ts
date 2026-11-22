@@ -340,6 +340,8 @@ interface AlertRule {
   name: string;
   type: string;
   enabled: boolean;
+  threshold: number;
+  cooldownMs: number;
   silencedUntil: string | null;
 }
 
