@@ -21,6 +21,7 @@ import {
   MAX_PAYLOAD_BYTES,
   MAX_WORKFLOWS_PER_PROJECT,
   PAUSE_WORKFLOWS_LIMIT,
+  RESUME_WORKFLOWS_LIMIT,
   findUnsafeKey,
   handlerSchemas,
   isHandlerName,
@@ -268,6 +269,32 @@ export async function pauseWorkflows(project: ProjectDoc, input: { limit?: numbe
     }
   }
   return { paused: workflowIds.length, skipped, workflowIds };
+}
+
+export async function resumeWorkflows(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, RESUME_WORKFLOWS_LIMIT);
+  const paused = await Workflow.find({
+    projectId: project._id,
+    deletedAt: null,
+    paused: true,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const workflowIds: string[] = [];
+  let skipped = 0;
+  for (const workflow of paused) {
+    try {
+      await setWorkflowPaused(project, workflow.publicId, false, auth);
+      workflowIds.push(workflow.publicId);
+    } catch (error) {
+      if (error instanceof AppError && error.status === 409) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { resumed: workflowIds.length, skipped, workflowIds };
 }
 
 export async function deleteWorkflow(project: ProjectDoc, workflowId: string, auth: AuthContext) {

@@ -254,6 +254,10 @@ export const pauseWorkflowsSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const resumeWorkflowsSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const workflowSchema = z
   .object({
     name: z.string().trim().min(2).max(60),
