@@ -208,6 +208,8 @@ export class TaskFlow {
       this.request<ScheduleResource>("PATCH", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}`), { body: input }),
     run: async (scheduleId: string) => this.request<Job>("POST", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}/run`)),
     pause: async (scheduleId: string) => this.request<ScheduleResource>("POST", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}/pause`)),
+    pauseSchedules: async (input: { limit?: number } = {}) =>
+      this.request<{ paused: number; scheduleIds: string[] }>("POST", await this.projectPath("/schedules/pause"), { body: input }),
     resume: async (scheduleId: string) => this.request<ScheduleResource>("POST", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}/resume`)),
     delete: async (scheduleId: string) => this.request<{ id: string; deleted: boolean }>("DELETE", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}`)),
   };

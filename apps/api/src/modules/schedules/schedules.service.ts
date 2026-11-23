@@ -12,6 +12,7 @@ import {
 } from "@taskflow/server";
 import {
   MAX_SCHEDULES_PER_PROJECT,
+  PAUSE_SCHEDULES_LIMIT,
   findUnsafeKey,
   handlerSchemas,
   isHandlerName,
@@ -183,6 +184,23 @@ export async function updateSchedule(project: ProjectDoc, schedule: ScheduleDoc,
     },
   });
   return schedule;
+}
+
+export async function pauseSchedules(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, PAUSE_SCHEDULES_LIMIT);
+  const running = await Schedule.find({
+    projectId: project._id,
+    deletedAt: null,
+    paused: false,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const scheduleIds: string[] = [];
+  for (const schedule of running) {
+    await setSchedulePaused(project, schedule, true, auth);
+    scheduleIds.push(schedule.publicId);
+  }
+  return { paused: scheduleIds.length, scheduleIds };
 }
 
 export async function setSchedulePaused(project: ProjectDoc, schedule: ScheduleDoc, paused: boolean, auth: AuthContext) {

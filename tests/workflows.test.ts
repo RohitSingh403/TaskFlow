@@ -192,7 +192,7 @@ it("runs a report before the email that depends on it, and keeps a failed depend
   await waitFor(async () => {
     const current = await asAda(ada.get(`/api/v1/projects/${projectId}/workflows/${fragileId}/runs/${failedRunId}`));
     const step = current.body.data.steps.find((item: { key: string }) => item.key === "report");
-    return step.status === "failed";
+    return step.status === "failed" && current.body.data.status === "failed";
   });
   const blocked = await asAda(ada.get(`/api/v1/projects/${projectId}/workflows/${fragileId}/runs/${failedRunId}`));
   expect(blocked.body.data.status).toBe("failed");

@@ -21,6 +21,15 @@ export function SchedulesPage() {
     queryFn: () => api<Schedule[]>(`/projects/${projectId}/schedules`),
     refetchInterval: 10_000,
   });
+  const pauseSchedules = useMutation({
+    mutationFn: () => api<{ paused: number; scheduleIds: string[] }>(`/projects/${projectId}/schedules/pause`, { method: "POST", body: JSON.stringify({ limit: 20 }) }),
+    onSuccess: (result) => {
+      const count = result.data.paused;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Paused 1 schedule" : `Paused ${count} schedules`);
+      void client.invalidateQueries({ queryKey: ["schedules", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not pause schedules"),
+  });
   const pause = useMutation({
     mutationFn: (schedule: Schedule) =>
       api<Schedule>(`/projects/${projectId}/schedules/${schedule.id}/${schedule.paused ? "resume" : "pause"}`, { method: "POST" }),
@@ -57,10 +66,13 @@ export function SchedulesPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Schedules</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            One scheduler process turns a cron pattern into a normal job. Edit keeps the same schedule. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time where it is. Missed ticks older than a minute are skipped.
+            One scheduler process turns a cron pattern into a normal job. Edit keeps the same schedule. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time where it is. Pause schedules stops the oldest running schedules, up to 20, and keeps each schedule id. The next run time stays. A schedule that is already paused is left alone. Missed ticks older than a minute are skipped.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)}>New schedule</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" loading={pauseSchedules.isPending} onClick={() => pauseSchedules.mutate()}>Pause schedules</Button>
+          <Button onClick={() => setOpen(true)}>New schedule</Button>
+        </div>
       </div>
       {schedules.isLoading ? <Card className="p-4 text-[13px] text-muted">Loading schedules…</Card> : null}
       {schedules.isError ? <EmptyState title="Schedules unavailable" body="The list request failed. Refresh once the API is reachable." /> : null}
