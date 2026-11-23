@@ -29,6 +29,7 @@ export const CANCEL_QUEUED_LIMIT = 50;
 export const PROMOTE_DELAYED_LIMIT = 50;
 export const QUEUED_PRIORITY_LIMIT = 50;
 export const MOVE_QUEUED_LIMIT = 50;
+export const RESCHEDULE_QUEUED_LIMIT = 50;
 export const BILLING_PLANS = ["developer", "scale"] as const;
 export type BillingPlan = (typeof BILLING_PLANS)[number];
 export const PLAN_JOB_ALLOWANCE: Record<BillingPlan, number> = {

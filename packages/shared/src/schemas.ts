@@ -147,6 +147,12 @@ export const rescheduleJobSchema = z.object({
   delayMs: z.number().int().min(0).max(30 * 24 * 60 * 60 * 1000),
 });
 
+export const rescheduleQueuedJobsSchema = z.object({
+  queue: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
+  delayMs: z.number().int().min(0).max(30 * 24 * 60 * 60 * 1000),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const updateJobPrioritySchema = z.object({
   priority: z.enum(PRIORITY_LABELS),
 });

@@ -1,0 +1,5 @@
+# Queued jobs can take a new delay together
+
+Run now clears a delay. An operator also needs to push a pile of waiting jobs later, or replace the remaining delay, without creating a second job for each one. `POST /jobs/reschedule` takes `delayMs` from 0 through 30 days, an optional queue, and a limit from 1 to 50. It reads the oldest waiting and delayed jobs and uses the same reschedule as a single job. Each job id stays. The delay is measured from the time of the call, so a later call starts the wait again.
+
+A delayed job keeps its queue entry. A waiting job that needs a delay is removed and queued again under the same id. `delayMs: 0` clears the delay. A workflow step that is already waiting stays on its run and is skipped. A delayed workflow step can still take a new delay. An active, completed, failed, or cancelled job is left alone. An unknown queue returns `404` `QUEUE_NOT_FOUND`. The monthly allowance does not change, because no new job is inserted. The caller repeats the request when more than 50 jobs remain.

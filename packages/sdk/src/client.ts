@@ -164,6 +164,8 @@ export class TaskFlow {
       this.request<{ promoted: number; skipped: number; jobIds: string[] }>("POST", await this.projectPath("/jobs/promote-delayed"), { body: input }),
     reschedule: async (jobId: string, input: { delayMs: number }) =>
       this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/reschedule`), { body: input }),
+    rescheduleQueued: async (input: { delayMs: number; queue?: string; limit?: number }) =>
+      this.request<{ rescheduled: number; skipped: number; jobIds: string[] }>("POST", await this.projectPath("/jobs/reschedule"), { body: input }),
     updatePriority: async (jobId: string, input: { priority: "high" | "medium" | "low" }) =>
       this.request<Job>("POST", await this.projectPath(`/jobs/${encodeURIComponent(jobId)}/priority`), { body: input }),
     updateQueuedPriority: async (input: { priority: "high" | "medium" | "low"; queue?: string; limit?: number }) =>
