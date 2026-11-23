@@ -144,6 +144,8 @@ A workflow has 2 to 8 steps and exactly one final step. A step may wait for seve
 
 `POST /projects/:projectId/workflows/:workflowId/pause` stops new runs. The workflow id, steps, and runs that already started stay. A second pause returns `409` `WORKFLOW_PAUSED`. Starting a run while the workflow is paused returns the same code. `POST /projects/:projectId/workflows/:workflowId/resume` accepts runs again. Resuming a workflow that is not paused returns `409` `WORKFLOW_NOT_PAUSED`.
 
+`POST /projects/:projectId/workflows/pause` with `{ "limit": 20 }` pauses the oldest running workflows, up to 50. Each workflow keeps its id, its steps, and any run that already started. A workflow that is already paused is left alone, and so is a deleted workflow. A second call returns `paused: 0`. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`.
+
 `POST /projects/:projectId/workflows/:workflowId/runs` creates one job per step and submits them together. The email stays waiting until the report completes. If the report fails and has no attempts left, the email does not run. `POST /projects/:projectId/jobs/:jobId/retry` on that failed job lets the rest of the tree continue. Deleting a workflow is soft.
 
 `POST /projects/:projectId/workflows/:workflowId/runs/:runId/cancel` removes every waiting or delayed step and marks the run `cancelled`. Completed and failed steps stay on the same run id. An active step returns `409` `WORKFLOW_RUN_NOT_CANCELLABLE`. A run that has already finished or is already cancelled returns the same code. A later update does not move a cancelled run back to waiting, active, completed, or failed.

@@ -250,6 +250,10 @@ const workflowStepSchema = z.object({
   dependsOn: z.array(z.string().trim()).max(7).default([]),
 });
 
+export const pauseWorkflowsSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const workflowSchema = z
   .object({
     name: z.string().trim().min(2).max(60),
