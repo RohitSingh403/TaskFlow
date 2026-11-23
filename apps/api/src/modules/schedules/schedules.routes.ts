@@ -1,4 +1,4 @@
-import { pauseSchedulesSchema, scheduleSchema, updateScheduleSchema } from "@taskflow/shared";
+import { pauseSchedulesSchema, resumeSchedulesSchema, scheduleSchema, updateScheduleSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toJob, toSchedule } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -6,7 +6,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, requireScope, validateBody } from "../../middleware/common.js";
 import { loadProject } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { createSchedule, deleteSchedule, getSchedule, listSchedules, pauseSchedules, setSchedulePaused, triggerSchedule, updateSchedule } from "./schedules.service.js";
+import { createSchedule, deleteSchedule, getSchedule, listSchedules, pauseSchedules, resumeSchedules, setSchedulePaused, triggerSchedule, updateSchedule } from "./schedules.service.js";
 
 export const scheduleRouter = Router({ mergeParams: true });
 
@@ -38,6 +38,16 @@ scheduleRouter.post(
   validateBody(pauseSchedulesSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, await pauseSchedules(req.project!, req.body, req.auth!));
+  }),
+);
+
+scheduleRouter.post(
+  "/resume",
+  writeLimiter,
+  requireScope("jobs:write"),
+  validateBody(resumeSchedulesSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await resumeSchedules(req.project!, req.body, req.auth!));
   }),
 );
 
