@@ -47,6 +47,15 @@ export function WorkflowsPage() {
     queryFn: () => api<Workflow[]>(`/projects/${projectId}/workflows`),
     refetchInterval: 10_000,
   });
+  const pauseWorkflows = useMutation({
+    mutationFn: () => api<{ paused: number; skipped: number; workflowIds: string[] }>(`/projects/${projectId}/workflows/pause`, { method: "POST", body: JSON.stringify({ limit: 20 }) }),
+    onSuccess: (result) => {
+      const count = result.data.paused;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Paused 1 workflow" : `Paused ${count} workflows`);
+      void client.invalidateQueries({ queryKey: ["workflows", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not pause workflows"),
+  });
   const remove = useMutation({
     mutationFn: (workflowId: string) => api(`/projects/${projectId}/workflows/${workflowId}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -65,10 +74,13 @@ export function WorkflowsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Workflows</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. Steps replaces the tree for the next run. A run that already started keeps the steps it began with. Pause stops new runs. Cancel removes the steps that are still waiting and keeps the run id.
+            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. Steps replaces the tree for the next run. A run that already started keeps the steps it began with. Pause stops new runs. Pause workflows does that for the oldest running workflows, up to 20, and keeps each workflow id. A workflow that is already paused is left alone. Cancel removes the steps that are still waiting and keeps the run id.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)}>New workflow</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" loading={pauseWorkflows.isPending} onClick={() => pauseWorkflows.mutate()}>Pause workflows</Button>
+          <Button onClick={() => setOpen(true)}>New workflow</Button>
+        </div>
       </div>
       {workflows.isLoading ? <Card className="p-4 text-[13px] text-muted">Loading workflows…</Card> : null}
       {workflows.isError ? <EmptyState title="Workflows unavailable" body="The list request failed. Refresh once the API is reachable." /> : null}

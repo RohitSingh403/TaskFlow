@@ -326,6 +326,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/workflows", "Create a workflow of dependent jobs"],
     ["PATCH", "/projects/:id/workflows/:workflowId", "Change a workflow name or its steps and keep its id"],
     ["POST", "/projects/:id/workflows/:workflowId/pause", "Stop new runs and keep the workflow"],
+    ["POST", "/projects/:id/workflows/pause", "Pause up to 50 running workflows and keep their ids"],
     ["POST", "/projects/:id/workflows/:workflowId/runs", "Start one run of that workflow"],
     ["POST", "/projects/:id/workflows/:workflowId/runs/:runId/cancel", "Cancel the steps that are still waiting"],
     ["POST", "/projects/:id/alerts/rules", "Create a backlog, failure, offline, or long-running alert"],
