@@ -16,6 +16,7 @@ export function JobsPage() {
   const [params, setParams] = useSearchParams();
   const [nextPriority, setNextPriority] = useState("high");
   const [destination, setDestination] = useState("");
+  const [queuedDelay, setQueuedDelay] = useState("");
   const page = Number(params.get("page") ?? "1");
   const status = params.get("status") ?? "";
   const queue = params.get("queue") ?? "";
@@ -41,6 +42,18 @@ export function JobsPage() {
     queryKey: ["queues", projectId],
     enabled: Boolean(projectId),
     queryFn: () => api<Queue[]>(`/projects/${projectId}/queues`),
+  });
+  const rescheduleQueued = useMutation({
+    mutationFn: () => api<{ rescheduled: number; skipped: number }>(`/projects/${projectId}/jobs/reschedule`, {
+      method: "POST",
+      body: JSON.stringify(queue ? { queue, delayMs: Number(queuedDelay), limit: 20 } : { delayMs: Number(queuedDelay), limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.rescheduled;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Rescheduled 1 job" : `Rescheduled ${count} jobs`);
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not reschedule queued jobs"),
   });
   const moveQueued = useMutation({
     mutationFn: () => api<{ moved: number; skipped: number }>(`/projects/${projectId}/jobs/move`, {
@@ -91,6 +104,8 @@ export function JobsPage() {
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not cancel queued jobs"),
   });
   if (!projectId) return <EmptyState title="Choose a project" body="Create a project before listing jobs." />;
+  const queuedDelayValue = Number(queuedDelay);
+  const queuedDelayReady = queuedDelay.trim() !== "" && Number.isInteger(queuedDelayValue) && queuedDelayValue >= 0 && queuedDelayValue <= 30 * 24 * 60 * 60 * 1000;
   const update = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     if (value) next.set(key, value);
@@ -103,9 +118,11 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Set priority changes the oldest waiting and delayed jobs, up to 20, and keeps each job id. Move queued sends those jobs to another queue. A workflow step stays where it is. Run delayed runs the oldest delayed jobs now. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
+          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Reschedule queued gives the oldest waiting and delayed jobs a new delay, up to 20, and keeps each job id. The delay is measured from now. A waiting workflow step stays on its run. Set priority changes those jobs. Move queued sends them to another queue. Run delayed runs the oldest delayed jobs now. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <TextInput className="w-36" value={queuedDelay} onChange={(event) => setQueuedDelay(event.target.value)} inputMode="numeric" placeholder="Delay (ms)" aria-label="Queued delay (ms)" />
+          <Button variant="secondary" loading={rescheduleQueued.isPending} disabled={!queuedDelayReady} onClick={() => rescheduleQueued.mutate()}>Reschedule queued</Button>
           <SelectInput className="w-32" value={nextPriority} onChange={(event) => setNextPriority(event.target.value)} aria-label="Queued priority">
             <option value="high">High</option>
             <option value="medium">Medium</option>

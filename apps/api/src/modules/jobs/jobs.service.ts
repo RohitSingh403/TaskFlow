@@ -25,6 +25,7 @@ import {
   PROMOTE_DELAYED_LIMIT,
   QUEUED_PRIORITY_LIMIT,
   MOVE_QUEUED_LIMIT,
+  RESCHEDULE_QUEUED_LIMIT,
   DEAD_LETTER_RETRY_LIMIT,
   MAX_PAYLOAD_BYTES,
   priorityToBull,
@@ -443,6 +444,38 @@ export async function rescheduleJob(project: ProjectDoc, jobId: string, input: {
     data: { jobId: job.publicId, status: job.status, queue: job.queueName },
   });
   return job;
+}
+
+export async function rescheduleQueuedJobs(
+  project: ProjectDoc,
+  input: { queue?: string; delayMs: number; limit?: number },
+  auth: AuthContext,
+) {
+  if (input.queue) {
+    const queue = await QueueConfig.findOne({ projectId: project._id, name: input.queue, deletedAt: null });
+    if (!queue) throw new AppError(404, "QUEUE_NOT_FOUND", "Queue not found");
+  }
+  const limit = Math.min(input.limit ?? 20, RESCHEDULE_QUEUED_LIMIT);
+  const queued = await JobRecord.find({
+    projectId: project._id,
+    status: { $in: ["waiting", "delayed"] },
+    ...(input.queue ? { queueName: input.queue } : {}),
+  }).sort({ createdAt: 1 }).limit(limit);
+  const jobIds: string[] = [];
+  let skipped = 0;
+  for (const record of queued) {
+    try {
+      await rescheduleJob(project, record.publicId, { delayMs: input.delayMs }, auth);
+      jobIds.push(record.publicId);
+    } catch (error) {
+      if (error instanceof AppError && error.status === 409) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { rescheduled: jobIds.length, skipped, jobIds };
 }
 
 export async function updateJobPriority(
