@@ -206,6 +206,10 @@ export const pauseSchedulesSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const resumeSchedulesSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const scheduleSchema = z.object({
   name: z.string().trim().min(2).max(60),
   description: z.string().trim().max(280).optional(),

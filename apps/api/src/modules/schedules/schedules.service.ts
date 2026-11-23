@@ -13,6 +13,7 @@ import {
 import {
   MAX_SCHEDULES_PER_PROJECT,
   PAUSE_SCHEDULES_LIMIT,
+  RESUME_SCHEDULES_LIMIT,
   findUnsafeKey,
   handlerSchemas,
   isHandlerName,
@@ -201,6 +202,23 @@ export async function pauseSchedules(project: ProjectDoc, input: { limit?: numbe
     scheduleIds.push(schedule.publicId);
   }
   return { paused: scheduleIds.length, scheduleIds };
+}
+
+export async function resumeSchedules(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, RESUME_SCHEDULES_LIMIT);
+  const paused = await Schedule.find({
+    projectId: project._id,
+    deletedAt: null,
+    paused: true,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const scheduleIds: string[] = [];
+  for (const schedule of paused) {
+    await setSchedulePaused(project, schedule, false, auth);
+    scheduleIds.push(schedule.publicId);
+  }
+  return { resumed: scheduleIds.length, scheduleIds };
 }
 
 export async function setSchedulePaused(project: ProjectDoc, schedule: ScheduleDoc, paused: boolean, auth: AuthContext) {
