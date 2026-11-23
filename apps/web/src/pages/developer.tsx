@@ -321,6 +321,7 @@ export function DocsPage() {
     ["PATCH", "/projects/:id/schedules/:scheduleId", "Change a schedule and keep its id"],
     ["POST", "/projects/:id/schedules/:scheduleId/run", "Queue one occurrence now"],
     ["POST", "/projects/:id/schedules/:scheduleId/pause", "Stop future occurrences"],
+    ["POST", "/projects/:id/schedules/pause", "Pause up to 50 running schedules and keep their ids"],
     ["POST", "/projects/:id/workflows", "Create a workflow of dependent jobs"],
     ["PATCH", "/projects/:id/workflows/:workflowId", "Change a workflow name or its steps and keep its id"],
     ["POST", "/projects/:id/workflows/:workflowId/pause", "Stop new runs and keep the workflow"],
