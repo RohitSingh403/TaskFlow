@@ -130,6 +130,18 @@ export function WebhooksPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not rotate webhook secrets"),
   });
+  const deleteWebhooks = useMutation({
+    mutationFn: () => api<{ deleted: number; skipped: number; webhookIds: string[] }>(`/projects/${projectId}/webhooks/delete`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.deleted;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Deleted 1 webhook" : `Deleted ${count} webhooks`);
+      void client.invalidateQueries({ queryKey: ["webhooks", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not delete webhooks"),
+  });
 
   if (!projectId) return <EmptyState title="Choose a project" body="Webhooks belong to a project." />;
   const hooks = listed.data?.data.webhooks ?? [];
@@ -140,7 +152,7 @@ export function WebhooksPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Webhooks</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Edit changes the URL or events and keeps the endpoint id and signing secret. Pause webhooks stops the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A webhook that is already paused is left alone. Resume webhooks starts the oldest paused endpoints again, up to 20, and keeps each endpoint id and signing secret. A webhook that is already enabled is left alone. Send test queues a webhook.test delivery without waiting for a job. A paused endpoint refuses that test. Send tests does that for the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A second call queues another test. An enabled endpoint can accept it. Rotate replaces the signing secret. Rotate secrets does that for the oldest endpoints, up to 20, including a paused endpoint, and keeps each endpoint id. The new secrets are shown once. A second call replaces them again. Deliveries that have not been sent use the current URL and secret. Send again queues that same delivery id. Send failed again queues the oldest failed deliveries, up to 20. Each delivery keeps its id. Receivers should ignore a delivery id they have already handled.
+            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Edit changes the URL or events and keeps the endpoint id and signing secret. Pause webhooks stops the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A webhook that is already paused is left alone. Resume webhooks starts the oldest paused endpoints again, up to 20, and keeps each endpoint id and signing secret. A webhook that is already enabled is left alone. Send test queues a webhook.test delivery without waiting for a job. A paused endpoint refuses that test. Send tests does that for the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A second call queues another test. An enabled endpoint can accept it. Rotate replaces the signing secret. Rotate secrets does that for the oldest endpoints, up to 20, including a paused endpoint, and keeps each endpoint id. The new secrets are shown once. A second call replaces them again. Deliveries that have not been sent use the current URL and secret. Send again queues that same delivery id. Send failed again queues the oldest failed deliveries, up to 20. Each delivery keeps its id. Receivers should ignore a delivery id they have already handled. Delete webhooks removes the oldest endpoints, up to 20, including a paused endpoint, and keeps each endpoint id. A webhook that is already deleted is left alone. A second call deletes none of those endpoints.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -148,6 +160,7 @@ export function WebhooksPage() {
           <Button variant="secondary" loading={resumeWebhooks.isPending} onClick={() => resumeWebhooks.mutate()}>Resume webhooks</Button>
           <Button variant="secondary" loading={testWebhooks.isPending} onClick={() => testWebhooks.mutate()}>Send tests</Button>
           <Button variant="secondary" loading={rotateWebhooks.isPending} onClick={() => rotateWebhooks.mutate()}>Rotate secrets</Button>
+          <Button variant="danger" loading={deleteWebhooks.isPending} onClick={() => deleteWebhooks.mutate()}>Delete webhooks</Button>
           <Button onClick={() => setOpen(true)}>New webhook</Button>
         </div>
       </div>
