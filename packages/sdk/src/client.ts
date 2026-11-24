@@ -196,6 +196,8 @@ export class TaskFlow {
     update: async (queueId: string, input: { description?: string; concurrency?: number; maxWaiting?: number; rateLimit?: { max: number; duration: number } | null }) =>
       this.request<QueueResource>("PATCH", await this.projectPath(`/queues/${encodeURIComponent(queueId)}`), { body: input }),
     pause: async (queueId: string) => this.request<QueueResource>("POST", await this.projectPath(`/queues/${encodeURIComponent(queueId)}/pause`)),
+    pauseQueues: async (input: { limit?: number } = {}) =>
+      this.request<{ paused: number; skipped: number; queueIds: string[] }>("POST", await this.projectPath("/queues/pause"), { body: input }),
     resume: async (queueId: string) => this.request<QueueResource>("POST", await this.projectPath(`/queues/${encodeURIComponent(queueId)}/resume`)),
     delete: async (queueId: string) => this.request<{ id: string; deleted: boolean }>("DELETE", await this.projectPath(`/queues/${encodeURIComponent(queueId)}`)),
   };

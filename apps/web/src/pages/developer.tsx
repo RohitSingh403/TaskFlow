@@ -347,6 +347,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],
     ["PATCH", "/projects/:id/api-keys/:keyId", "Change an API key's name, scopes, or expiry and keep its secret"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
+    ["POST", "/projects/:id/queues/pause", "Pause up to 50 running queues and keep their ids"],
     ["DELETE", "/projects/:id/queues/:queueId", "Remove an empty queue that nothing still uses"],
   ];
   return (

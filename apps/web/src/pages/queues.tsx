@@ -29,6 +29,15 @@ export function QueuesPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not create the queue"),
   });
+  const pauseQueues = useMutation({
+    mutationFn: () => api<{ paused: number; skipped: number; queueIds: string[] }>(`/projects/${projectId}/queues/pause`, { method: "POST", body: JSON.stringify({ limit: 20 }) }),
+    onSuccess: (result) => {
+      const count = result.data.paused;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Paused 1 queue" : `Paused ${count} queues`);
+      void client.invalidateQueries({ queryKey: ["queues", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not pause queues"),
+  });
   const remove = useMutation({
     mutationFn: (queueId: string) => api(`/projects/${projectId}/queues/${queueId}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -41,12 +50,15 @@ export function QueuesPage() {
   if (!projectId) return <EmptyState title="Choose a project" body="Queues belong to a project." />;
   return (
     <div className="space-y-4">
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Queues</h1>
-          <p className="max-w-2xl text-[13px] text-muted">Counts are read from BullMQ. Delete removes an empty queue. Waiting, delayed, active, and paused jobs keep it, and so does a schedule or workflow that still uses it.</p>
+          <p className="max-w-2xl text-[13px] text-muted">Counts are read from BullMQ. Pause queues stops the oldest running queues, up to 20, and keeps each queue id. Jobs already waiting stay. A queue that is already paused is left alone. Delete removes an empty queue. Waiting, delayed, active, and paused jobs keep it, and so does a schedule or workflow that still uses it.</p>
         </div>
-        <Button onClick={() => setOpen(true)}>New queue</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" loading={pauseQueues.isPending} onClick={() => pauseQueues.mutate()}>Pause queues</Button>
+          <Button onClick={() => setOpen(true)}>New queue</Button>
+        </div>
       </div>
       <Card>
         <div className="overflow-x-auto">
