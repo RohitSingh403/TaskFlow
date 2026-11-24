@@ -279,6 +279,8 @@ export class TaskFlow {
       unsilence: async (ruleId: string) =>
         this.request<AlertRule>("POST", await this.projectPath(`/alerts/rules/${encodeURIComponent(ruleId)}/unsilence`)),
       delete: async (ruleId: string) => this.request<{ deleted: boolean }>("DELETE", await this.projectPath(`/alerts/rules/${encodeURIComponent(ruleId)}`)),
+      deleteRules: async (input: { limit?: number } = {}) =>
+        this.request<{ deleted: number; skipped: number; ruleIds: string[] }>("POST", await this.projectPath("/alerts/rules/delete"), { body: input }),
     },
   };
 
