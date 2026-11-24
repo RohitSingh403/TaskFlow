@@ -1,4 +1,4 @@
-import { cancelWorkflowRunsSchema, pauseWorkflowsSchema, resumeWorkflowsSchema, updateWorkflowSchema, workflowSchema } from "@taskflow/shared";
+import { cancelWorkflowRunsSchema, pauseWorkflowsSchema, resumeWorkflowsSchema, startWorkflowRunsSchema, updateWorkflowSchema, workflowSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toWorkflow, toWorkflowRun } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -19,6 +19,7 @@ import {
   resumeWorkflows,
   setWorkflowPaused,
   startWorkflowRun,
+  startWorkflowRuns,
   updateWorkflow,
 } from "./workflows.service.js";
 
@@ -73,6 +74,16 @@ workflowRouter.post(
   validateBody(cancelWorkflowRunsSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, await cancelWorkflowRuns(req.project!, req.body, req.auth!));
+  }),
+);
+
+workflowRouter.post(
+  "/runs",
+  writeLimiter,
+  requireScope("jobs:write"),
+  validateBody(startWorkflowRunsSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await startWorkflowRuns(req.project!, req.body, req.auth!));
   }),
 );
 

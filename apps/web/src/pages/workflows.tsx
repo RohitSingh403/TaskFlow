@@ -65,6 +65,18 @@ export function WorkflowsPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not resume workflows"),
   });
+  const startRuns = useMutation({
+    mutationFn: () => api<{ started: number; skipped: number; workflowIds: string[]; runIds: string[] }>(`/projects/${projectId}/workflows/runs`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.started;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Started 1 run" : `Started ${count} runs`);
+      void client.invalidateQueries({ queryKey: ["workflows", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not start workflow runs"),
+  });
   const cancelRuns = useMutation({
     mutationFn: () => api<{ cancelled: number; skipped: number; runIds: string[] }>(`/projects/${projectId}/workflows/runs/cancel`, { method: "POST", body: JSON.stringify({ limit: 20 }) }),
     onSuccess: (result) => {
@@ -92,12 +104,13 @@ export function WorkflowsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Workflows</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. Steps replaces the tree for the next run. A run that already started keeps the steps it began with. Pause stops new runs. Pause workflows does that for the oldest running workflows, up to 20, and keeps each workflow id. Resume workflows starts the oldest paused workflows again, up to 20, and keeps each workflow id. A workflow that is already running is left alone. Cancel runs stops the oldest waiting runs, up to 20, and keeps each run id. A run that is already finished, already cancelled, or has an active step is left alone. A run whose workflow was deleted is left alone.
+            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. Steps replaces the tree for the next run. A run that already started keeps the steps it began with. Pause stops new runs. Pause workflows does that for the oldest running workflows, up to 20, and keeps each workflow id. Resume workflows starts the oldest paused workflows again, up to 20, and keeps each workflow id. A workflow that is already running is left alone. Run workflows starts one run of each of the oldest workflows that can still accept a run, up to 20, and keeps each workflow id. A paused workflow is left alone, and so is a deleted workflow. A second call starts another run. Cancel runs stops the oldest waiting runs, up to 20, and keeps each run id. A run that is already finished, already cancelled, or has an active step is left alone. A run whose workflow was deleted is left alone.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" loading={pauseWorkflows.isPending} onClick={() => pauseWorkflows.mutate()}>Pause workflows</Button>
           <Button variant="secondary" loading={resumeWorkflows.isPending} onClick={() => resumeWorkflows.mutate()}>Resume workflows</Button>
+          <Button variant="secondary" loading={startRuns.isPending} onClick={() => startRuns.mutate()}>Run workflows</Button>
           <Button variant="secondary" loading={cancelRuns.isPending} onClick={() => cancelRuns.mutate()}>Cancel runs</Button>
           <Button onClick={() => setOpen(true)}>New workflow</Button>
         </div>
