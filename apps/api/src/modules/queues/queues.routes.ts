@@ -1,4 +1,4 @@
-import { pauseQueuesSchema, queueSchema, updateQueueSchema } from "@taskflow/shared";
+import { pauseQueuesSchema, queueSchema, resumeQueuesSchema, updateQueueSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toQueue } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -6,7 +6,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, requireScope, validateBody } from "../../middleware/common.js";
 import { loadProject } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { createQueue, deleteQueue, findQueue, listQueues, pauseQueues, queueStats, setQueuePaused, updateQueue } from "./queues.service.js";
+import { createQueue, deleteQueue, findQueue, listQueues, pauseQueues, queueStats, resumeQueues, setQueuePaused, updateQueue } from "./queues.service.js";
 
 export const queueRouter = Router({ mergeParams: true });
 
@@ -42,6 +42,16 @@ queueRouter.post(
   validateBody(pauseQueuesSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, await pauseQueues(req.project!, req.body, req.auth!.userPublicId));
+  }),
+);
+
+queueRouter.post(
+  "/resume",
+  writeLimiter,
+  requireScope("queues:write"),
+  validateBody(resumeQueuesSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await resumeQueues(req.project!, req.body, req.auth!.userPublicId));
   }),
 );
 

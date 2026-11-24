@@ -1,4 +1,4 @@
-import { PAUSE_QUEUES_LIMIT } from "@taskflow/shared";
+import { PAUSE_QUEUES_LIMIT, RESUME_QUEUES_LIMIT } from "@taskflow/shared";
 import { AuditLog, bullQueueName, createId, getBullQueue, QueueConfig, Schedule, Workflow, type ProjectDoc, type QueueDoc } from "@taskflow/server";
 import { AppError } from "../../errors.js";
 import { publish } from "../../infrastructure.js";
@@ -114,6 +114,37 @@ export async function pauseQueues(project: ProjectDoc, input: { limit?: number }
     }
   }
   return { paused: queueIds.length, skipped, queueIds };
+}
+
+export async function resumeQueues(project: ProjectDoc, input: { limit?: number }, actorId: string) {
+  const limit = Math.min(input.limit ?? 20, RESUME_QUEUES_LIMIT);
+  const paused = await QueueConfig.find({
+    projectId: project._id,
+    deletedAt: null,
+    isPaused: true,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const queueIds: string[] = [];
+  let skipped = 0;
+  for (const queue of paused) {
+    try {
+      const current = await findQueue(project, queue.publicId);
+      if (!current.isPaused) {
+        skipped += 1;
+        continue;
+      }
+      await setQueuePaused(project, current, false, actorId);
+      queueIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { resumed: queueIds.length, skipped, queueIds };
 }
 
 export async function deleteQueue(project: ProjectDoc, queue: QueueDoc, actorId: string) {
