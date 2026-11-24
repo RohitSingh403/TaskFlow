@@ -13,12 +13,20 @@ const labels: Record<AlertType, string> = {
   "job.long_running": "Long-running job",
 };
 
+const silenceChoices = [
+  { label: "1 hour", durationMs: 60 * 60 * 1000 },
+  { label: "8 hours", durationMs: 8 * 60 * 60 * 1000 },
+  { label: "1 day", durationMs: 24 * 60 * 60 * 1000 },
+  { label: "7 days", durationMs: 7 * 24 * 60 * 60 * 1000 },
+];
+
 export function AlertsPage() {
   const projectId = useSession((state) => state.projectId);
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AlertRule | null>(null);
+  const [durationMs, setDurationMs] = useState(silenceChoices[0]?.durationMs ?? 60 * 60 * 1000);
   const rules = useQuery({
     queryKey: ["alert-rules", projectId],
     enabled: Boolean(projectId),
@@ -65,6 +73,18 @@ export function AlertsPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not resolve the alert"),
   });
+  const silenceRules = useMutation({
+    mutationFn: () => api<{ silenced: number; skipped: number; ruleIds: string[] }>(`/projects/${projectId}/alerts/rules/silence`, {
+      method: "POST",
+      body: JSON.stringify({ durationMs, limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.silenced;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Silenced 1 rule" : `Silenced ${count} rules`);
+      void client.invalidateQueries({ queryKey: ["alert-rules", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not silence rules"),
+  });
 
   if (!projectId) return <EmptyState title="Choose a project" body="Alert rules belong to a project." />;
   const ruleRows = rules.data?.data ?? [];
@@ -75,10 +95,16 @@ export function AlertsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Alerts</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. The rule stays enabled. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id.
+            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. Silence rules does that for the oldest rules that are still checking, up to 20, and keeps each rule id. A rule that is already silenced is left alone. The rule stays enabled. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)}>New rule</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <SelectInput className="h-8 w-28" aria-label="Silence rules for" value={String(durationMs)} onChange={(event) => setDurationMs(Number(event.target.value))}>
+            {silenceChoices.map((choice) => <option key={choice.durationMs} value={choice.durationMs}>{choice.label}</option>)}
+          </SelectInput>
+          <Button variant="secondary" loading={silenceRules.isPending} onClick={() => silenceRules.mutate()}>Silence rules</Button>
+          <Button onClick={() => setOpen(true)}>New rule</Button>
+        </div>
       </div>
       {rules.isError || alerts.isError ? <EmptyState title="Alerts unavailable" body="The request failed. Refresh once the API is reachable." /> : null}
       {ruleRows.length === 0 && !rules.isLoading ? (
@@ -157,13 +183,6 @@ export function AlertsPage() {
     </div>
   );
 }
-
-const silenceChoices = [
-  { label: "1 hour", durationMs: 60 * 60 * 1000 },
-  { label: "8 hours", durationMs: 8 * 60 * 60 * 1000 },
-  { label: "1 day", durationMs: 24 * 60 * 60 * 1000 },
-  { label: "7 days", durationMs: 7 * 24 * 60 * 60 * 1000 },
-];
 
 function RuleSilence({ rule }: { rule: AlertRule }) {
   const projectId = useSession((state) => state.projectId);

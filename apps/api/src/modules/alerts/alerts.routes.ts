@@ -1,4 +1,4 @@
-import { alertRuleSchema, listAlertsQuerySchema, resolveOpenAlertsSchema, silenceAlertSchema, updateAlertRuleSchema } from "@taskflow/shared";
+import { alertRuleSchema, listAlertsQuerySchema, resolveOpenAlertsSchema, silenceAlertRulesSchema, silenceAlertSchema, updateAlertRuleSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toAlert, toAlertRule } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -6,7 +6,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, readQuery, requireScope, validateBody, validateQuery } from "../../middleware/common.js";
 import { loadProject } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { createAlertRule, deleteAlertRule, listAlertRules, listAlerts, resolveAlert, resolveOpenAlerts, silenceAlertRule, unsilenceAlertRule, updateAlertRule } from "./alerts.service.js";
+import { createAlertRule, deleteAlertRule, listAlertRules, listAlerts, resolveAlert, resolveOpenAlerts, silenceAlertRule, silenceAlertRules, unsilenceAlertRule, updateAlertRule } from "./alerts.service.js";
 
 export const alertRouter = Router({ mergeParams: true });
 
@@ -27,6 +27,16 @@ alertRouter.post(
   validateBody(alertRuleSchema),
   asyncHandler(async (req, res) => {
     sendCreated(res, toAlertRule(await createAlertRule(req.project!, req.body, req.auth!)));
+  }),
+);
+
+alertRouter.post(
+  "/rules/silence",
+  writeLimiter,
+  requireScope("jobs:write"),
+  validateBody(silenceAlertRulesSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await silenceAlertRules(req.project!, req.body, req.auth!));
   }),
 );
 
