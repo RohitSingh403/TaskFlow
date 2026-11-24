@@ -224,6 +224,8 @@ TaskFlow POSTs the same JSON body on every attempt. Headers are `TaskFlow-Delive
 
 `POST /projects/:projectId/queues/resume` with `{ "limit": 20 }` resumes the oldest paused queues, up to 50. Each queue keeps its id. Jobs already waiting stay on that queue, and workers can take new jobs again. A queue that is already running is left alone, and so is a deleted queue. A second call returns `resumed: 0`. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`. The caller needs `queues:write`.
 
+`POST /projects/:projectId/queues/delete` with `{ "limit": 20 }` deletes the oldest queues, up to 50. Each queue keeps its id, name, and concurrency. The queue is paused and leaves the list. A paused queue that is empty is included. A queue that still has waiting, delayed, active, or paused jobs is left alone. A queue that a schedule or workflow still uses is left alone. A queue that is already deleted is left alone. Finished and failed job records stay. A second call returns `deleted: 0` once every selected queue is gone or blocked. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`. A reader key returns `403`. The caller needs `queues:write`.
+
 `PATCH` accepts `description`, `concurrency` (1–100), `maxWaiting`, and `rateLimit` (`{ max, duration }` or `null`). `rateLimit.duration` is a window in milliseconds. Concurrency is simultaneous work. The rate limit is admissions per window.
 
 ## Analytics
