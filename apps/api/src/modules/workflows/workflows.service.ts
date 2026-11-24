@@ -24,6 +24,7 @@ import {
   RESUME_WORKFLOWS_LIMIT,
   CANCEL_WORKFLOW_RUNS_LIMIT,
   START_WORKFLOW_RUNS_LIMIT,
+  DELETE_WORKFLOWS_LIMIT,
   findUnsafeKey,
   handlerSchemas,
   isHandlerName,
@@ -360,6 +361,40 @@ export async function deleteWorkflow(project: ProjectDoc, workflowId: string, au
     targetId: workflow.publicId,
     metadata: {},
   });
+}
+
+export async function deleteWorkflows(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, DELETE_WORKFLOWS_LIMIT);
+  const selected = await Workflow.find({
+    projectId: project._id,
+    deletedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const workflowIds: string[] = [];
+  let skipped = 0;
+  for (const workflow of selected) {
+    try {
+      const current = await Workflow.findOne({
+        projectId: project._id,
+        publicId: workflow.publicId,
+        deletedAt: null,
+      }) as WorkflowDoc | null;
+      if (!current) {
+        skipped += 1;
+        continue;
+      }
+      await deleteWorkflow(project, current.publicId, auth);
+      workflowIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { deleted: workflowIds.length, skipped, workflowIds };
 }
 
 export async function startWorkflowRun(project: ProjectDoc, workflowId: string, auth: AuthContext) {
