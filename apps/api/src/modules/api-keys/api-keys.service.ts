@@ -1,5 +1,5 @@
 import { ApiKey, AuditLog, createApiKeySecret, createId, type ProjectDoc } from "@taskflow/server";
-import { API_SCOPES, type ApiScope } from "@taskflow/shared";
+import { API_SCOPES, REVOKE_API_KEYS_LIMIT, type ApiScope } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 
 export async function listApiKeys(project: ProjectDoc) {
@@ -93,4 +93,26 @@ export async function revokeApiKey(project: ProjectDoc, keyId: string, actorId: 
     });
   }
   return key;
+}
+
+export async function revokeApiKeys(project: ProjectDoc, input: { limit?: number }, actorId: string) {
+  const limit = Math.min(input.limit ?? 20, REVOKE_API_KEYS_LIMIT);
+  const selected = await ApiKey.find({
+    projectId: project._id,
+    revokedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const keyIds: string[] = [];
+  let skipped = 0;
+  for (const key of selected) {
+    const current = await ApiKey.findOne({ projectId: project._id, publicId: key.publicId, revokedAt: null });
+    if (!current) {
+      skipped += 1;
+      continue;
+    }
+    await revokeApiKey(project, current.publicId, actorId);
+    keyIds.push(current.publicId);
+  }
+  return { revoked: keyIds.length, skipped, keyIds };
 }
