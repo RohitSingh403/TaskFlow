@@ -342,6 +342,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/webhooks/:webhookId/test", "Queue a signed test delivery"],
     ["POST", "/projects/:id/webhooks/:webhookId/deliveries/:deliveryId/redeliver", "Queue the same delivery again"],
     ["POST", "/projects/:id/webhooks/redeliver-failed", "Queue up to 50 failed deliveries again and keep their ids"],
+    ["POST", "/projects/:id/webhooks/pause", "Pause up to 50 enabled webhooks and keep their ids"],
     ["POST", "/projects/:id/members", "Add an existing account to the project"],
     ["POST", "/projects/:id/members/transfer", "Make a member the project owner"],
     ["GET", "/projects/:id/billing", "Read this month's job allowance"],
