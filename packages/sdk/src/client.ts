@@ -198,6 +198,8 @@ export class TaskFlow {
     pause: async (queueId: string) => this.request<QueueResource>("POST", await this.projectPath(`/queues/${encodeURIComponent(queueId)}/pause`)),
     pauseQueues: async (input: { limit?: number } = {}) =>
       this.request<{ paused: number; skipped: number; queueIds: string[] }>("POST", await this.projectPath("/queues/pause"), { body: input }),
+    resumeQueues: async (input: { limit?: number } = {}) =>
+      this.request<{ resumed: number; skipped: number; queueIds: string[] }>("POST", await this.projectPath("/queues/resume"), { body: input }),
     resume: async (queueId: string) => this.request<QueueResource>("POST", await this.projectPath(`/queues/${encodeURIComponent(queueId)}/resume`)),
     delete: async (queueId: string) => this.request<{ id: string; deleted: boolean }>("DELETE", await this.projectPath(`/queues/${encodeURIComponent(queueId)}`)),
   };

@@ -11,7 +11,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Email and password accounts, Argon2id hashes, short-lived access tokens, and rotating refresh tokens stored only as SHA-256 hashes.
 - API keys stored as SHA-256 hashes. A key can expire after 1 to 365 days, or stay valid until the owner revokes it. Rename changes the label and keeps the secret. Scopes and expiry can change on that same key.
 - Projects with development and production environments. Development projects may simulate handler failures. Production projects reject that field.
-- Queues with concurrency, an optional rate limit, a waiting-job ceiling, and pause / resume. Pause queues stops the oldest running queues, up to 50, and keeps each queue id. Jobs already waiting stay. A queue that is already paused is left alone. Delete removes an empty queue. Waiting, delayed, active, and paused jobs keep it, and so does a schedule or workflow that still uses it.
+- Queues with concurrency, an optional rate limit, a waiting-job ceiling, and pause / resume. Pause queues stops the oldest running queues, up to 50, and keeps each queue id. Jobs already waiting stay. A queue that is already paused is left alone. Resume queues starts the oldest paused queues again, up to 50, and keeps each queue id. A queue that is already running is left alone. Delete removes an empty queue. Waiting, delayed, active, and paused jobs keep it, and so does a schedule or workflow that still uses it.
 - Job submission by session or API key, with priority, delay, timeout, retry, and idempotency keys.
 - A jobs list window. `from` and `to` keep jobs created in that range. Either side can be left open. An idempotency key returns the one job that used it.
 - Run again. Replaying a job queues a new copy with the same handler and payload. The original job stays as it is.
@@ -157,6 +157,7 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | GET | `/projects/:id/queues` | List queues and BullMQ counts |
 | POST | `/projects/:id/queues/:queueId/pause` | Pause a queue |
 | POST | `/projects/:id/queues/pause` | Pause up to 50 running queues and keep their ids |
+| POST | `/projects/:id/queues/resume` | Resume up to 50 paused queues and keep their ids |
 | POST | `/projects/:id/jobs` | Submit a job |
 | POST | `/projects/:id/jobs/promote-delayed` | Run up to 50 delayed jobs now and keep their ids |
 | POST | `/projects/:id/jobs/priority` | Change the priority of up to 50 waiting or delayed jobs |
