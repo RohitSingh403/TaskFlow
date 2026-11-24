@@ -118,6 +118,10 @@ export const updateApiKeySchema = z
   })
   .refine((value) => Object.keys(value).length > 0, { message: "No changes were provided" });
 
+export const revokeApiKeysSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const retryFailedJobsSchema = z.object({
   queue: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
   limit: z.number().int().min(1).max(50).default(20),
