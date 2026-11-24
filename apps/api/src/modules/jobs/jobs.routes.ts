@@ -1,4 +1,4 @@
-import { cancelQueuedJobsSchema, dismissFailedJobsSchema, listJobsQuerySchema, moveJobSchema, moveQueuedJobsSchema, promoteDelayedJobsSchema, rescheduleJobSchema, rescheduleQueuedJobsSchema, restoreDismissedJobsSchema, retryFailedJobsSchema, submitJobSchema, updateJobPrioritySchema, updateQueuedPrioritySchema } from "@taskflow/shared";
+import { cancelQueuedJobsSchema, dismissFailedJobsSchema, listJobsQuerySchema, moveJobSchema, moveQueuedJobsSchema, promoteDelayedJobsSchema, replayJobsSchema, rescheduleJobSchema, rescheduleQueuedJobsSchema, restoreDismissedJobsSchema, retryFailedJobsSchema, submitJobSchema, updateJobPrioritySchema, updateQueuedPrioritySchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toJob } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -6,7 +6,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, readQuery, requireScope, validateBody, validateQuery } from "../../middleware/common.js";
 import { loadProject } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { cancelJob, cancelQueuedJobs, dismissFailedJobs, dismissJob, getJob, listAttempts, listJobs, moveJob, moveQueuedJobs, promoteDelayedJobs, promoteJob, removeJob, replayJob, rescheduleJob, rescheduleQueuedJobs, restoreDismissedJobs, restoreJob, retryFailedJobs, retryJob, submitJob, updateJobPriority, updateQueuedPriorities } from "./jobs.service.js";
+import { cancelJob, cancelQueuedJobs, dismissFailedJobs, dismissJob, getJob, listAttempts, listJobs, moveJob, moveQueuedJobs, promoteDelayedJobs, promoteJob, removeJob, replayFinishedJobs, replayJob, rescheduleJob, rescheduleQueuedJobs, restoreDismissedJobs, restoreJob, retryFailedJobs, retryJob, submitJob, updateJobPriority, updateQueuedPriorities } from "./jobs.service.js";
 import type { JobListQuery } from "./jobs.service.js";
 
 export const jobRouter = Router({ mergeParams: true });
@@ -122,6 +122,16 @@ jobRouter.post(
   validateBody(cancelQueuedJobsSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, await cancelQueuedJobs(req.project!, req.body, req.auth!));
+  }),
+);
+
+jobRouter.post(
+  "/replay",
+  writeLimiter,
+  requireScope("jobs:write"),
+  validateBody(replayJobsSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await replayFinishedJobs(req.project!, req.body, req.auth!));
   }),
 );
 

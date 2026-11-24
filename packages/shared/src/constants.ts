@@ -48,6 +48,7 @@ export const RESUME_WEBHOOKS_LIMIT = 50;
 export const TEST_WEBHOOKS_LIMIT = 50;
 export const ROTATE_WEBHOOKS_LIMIT = 50;
 export const REVOKE_API_KEYS_LIMIT = 50;
+export const REPLAY_JOBS_LIMIT = 50;
 export const BILLING_PLANS = ["developer", "scale"] as const;
 export type BillingPlan = (typeof BILLING_PLANS)[number];
 export const PLAN_JOB_ALLOWANCE: Record<BillingPlan, number> = {

@@ -103,6 +103,18 @@ export function JobsPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not cancel queued jobs"),
   });
+  const replayFinished = useMutation({
+    mutationFn: () => api<{ replayed: number; skipped: number; jobIds: string[]; sourceJobIds: string[] }>(`/projects/${projectId}/jobs/replay`, {
+      method: "POST",
+      body: JSON.stringify(queue ? { queue, limit: 20 } : { limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.replayed;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Replayed 1 job" : `Replayed ${count} jobs`);
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not replay jobs"),
+  });
   if (!projectId) return <EmptyState title="Choose a project" body="Create a project before listing jobs." />;
   const queuedDelayValue = Number(queuedDelay);
   const queuedDelayReady = queuedDelay.trim() !== "" && Number.isInteger(queuedDelayValue) && queuedDelayValue >= 0 && queuedDelayValue <= 30 * 24 * 60 * 60 * 1000;
@@ -118,7 +130,7 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Reschedule queued gives the oldest waiting and delayed jobs a new delay, up to 20, and keeps each job id. The delay is measured from now. A waiting workflow step stays on its run. Set priority changes those jobs. Move queued sends them to another queue. Run delayed runs the oldest delayed jobs now. Cancel queued removes waiting and delayed jobs. Active jobs stay.</p>
+          <p className="max-w-3xl text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Reschedule queued gives the oldest waiting and delayed jobs a new delay, up to 20, and keeps each job id. The delay is measured from now. A waiting workflow step stays on its run. Set priority changes those jobs. Move queued sends them to another queue. Run delayed runs the oldest delayed jobs now. Cancel queued removes waiting and delayed jobs. Active jobs stay. Run again copies the oldest completed, failed, and cancelled jobs, up to 20, into new waiting jobs. The originals stay. A second call copies those finished jobs again.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <TextInput className="w-36" value={queuedDelay} onChange={(event) => setQueuedDelay(event.target.value)} inputMode="numeric" placeholder="Delay (ms)" aria-label="Queued delay (ms)" />
@@ -136,6 +148,7 @@ export function JobsPage() {
           <Button variant="secondary" loading={moveQueued.isPending} disabled={!destination || destination === queue} onClick={() => moveQueued.mutate()}>Move queued</Button>
           <Button variant="secondary" loading={promoteDelayed.isPending} onClick={() => promoteDelayed.mutate()}>Run delayed</Button>
           <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
+          <Button variant="secondary" loading={replayFinished.isPending} onClick={() => replayFinished.mutate()}>Run again</Button>
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
