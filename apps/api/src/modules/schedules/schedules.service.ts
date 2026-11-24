@@ -16,6 +16,7 @@ import {
   PAUSE_SCHEDULES_LIMIT,
   RESUME_SCHEDULES_LIMIT,
   RUN_SCHEDULES_LIMIT,
+  DELETE_SCHEDULES_LIMIT,
   findUnsafeKey,
   handlerSchemas,
   isHandlerName,
@@ -308,6 +309,32 @@ export async function triggerSchedule(project: ProjectDoc, schedule: ScheduleDoc
     data: { jobId: job.publicId, status: job.status, queue: job.queueName },
   });
   return job;
+}
+
+export async function deleteSchedules(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, DELETE_SCHEDULES_LIMIT);
+  const selected = await Schedule.find({
+    projectId: project._id,
+    deletedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const scheduleIds: string[] = [];
+  let skipped = 0;
+  for (const schedule of selected) {
+    const current = await Schedule.findOne({
+      projectId: project._id,
+      publicId: schedule.publicId,
+      deletedAt: null,
+    }) as ScheduleDoc | null;
+    if (!current) {
+      skipped += 1;
+      continue;
+    }
+    await deleteSchedule(project, current, auth);
+    scheduleIds.push(current.publicId);
+  }
+  return { deleted: scheduleIds.length, skipped, scheduleIds };
 }
 
 export async function deleteSchedule(project: ProjectDoc, schedule: ScheduleDoc, auth: AuthContext) {

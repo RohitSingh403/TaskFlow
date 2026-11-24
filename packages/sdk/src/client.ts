@@ -224,6 +224,8 @@ export class TaskFlow {
       this.request<{ resumed: number; scheduleIds: string[] }>("POST", await this.projectPath("/schedules/resume"), { body: input }),
     resume: async (scheduleId: string) => this.request<ScheduleResource>("POST", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}/resume`)),
     delete: async (scheduleId: string) => this.request<{ id: string; deleted: boolean }>("DELETE", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}`)),
+    deleteSchedules: async (input: { limit?: number } = {}) =>
+      this.request<{ deleted: number; skipped: number; scheduleIds: string[] }>("POST", await this.projectPath("/schedules/delete"), { body: input }),
   };
 
   readonly workflows = {
