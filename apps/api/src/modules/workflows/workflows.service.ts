@@ -22,6 +22,7 @@ import {
   MAX_WORKFLOWS_PER_PROJECT,
   PAUSE_WORKFLOWS_LIMIT,
   RESUME_WORKFLOWS_LIMIT,
+  CANCEL_WORKFLOW_RUNS_LIMIT,
   findUnsafeKey,
   handlerSchemas,
   isHandlerName,
@@ -531,6 +532,40 @@ export async function cancelWorkflowRun(project: ProjectDoc, workflowId: string,
     metadata: { workflowId: workflow.publicId, cancelled },
   });
   return getWorkflowRun(project, workflowId, runId);
+}
+
+export async function cancelWorkflowRuns(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, CANCEL_WORKFLOW_RUNS_LIMIT);
+  const live = await Workflow.find({ projectId: project._id, deletedAt: null }).select("_id publicId");
+  const byId = new Map(live.map((workflow) => [String(workflow._id), workflow.publicId]));
+  const waiting = await WorkflowRun.find({
+    projectId: project._id,
+    status: "waiting",
+    workflowId: { $in: [...byId.keys()] },
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const runIds: string[] = [];
+  let skipped = 0;
+  for (const run of waiting) {
+    try {
+      const current = await WorkflowRun.findOne({ _id: run._id, projectId: project._id }) as WorkflowRunDoc | null;
+      const workflowId = current ? byId.get(String(current.workflowId)) : undefined;
+      if (!current || current.status !== "waiting" || !workflowId) {
+        skipped += 1;
+        continue;
+      }
+      await cancelWorkflowRun(project, workflowId, current.publicId, auth);
+      runIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { cancelled: runIds.length, skipped, runIds };
 }
 
 export async function getWorkflowRun(project: ProjectDoc, workflowId: string, runId: string) {

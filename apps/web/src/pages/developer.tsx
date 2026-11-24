@@ -328,6 +328,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/workflows/:workflowId/pause", "Stop new runs and keep the workflow"],
     ["POST", "/projects/:id/workflows/pause", "Pause up to 50 running workflows and keep their ids"],
     ["POST", "/projects/:id/workflows/resume", "Resume up to 50 paused workflows and keep their ids"],
+    ["POST", "/projects/:id/workflows/runs/cancel", "Cancel up to 50 waiting runs and keep their ids"],
     ["POST", "/projects/:id/workflows/:workflowId/runs", "Start one run of that workflow"],
     ["POST", "/projects/:id/workflows/:workflowId/runs/:runId/cancel", "Cancel the steps that are still waiting"],
     ["POST", "/projects/:id/alerts/rules", "Create a backlog, failure, offline, or long-running alert"],
