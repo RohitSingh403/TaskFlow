@@ -31,7 +31,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Socket.IO updates scoped to a project room. The client refetches after reconnect.
 - A fixed handler registry. Callers name a handler. They cannot submit code.
 - A TypeScript client, `@taskflow/sdk`. It submits work with an API key and returns when the API accepts the job. `jobs.wait` polls until the job finishes. Reads retry transient failures. A create retries only when it has an idempotency key.
-- Project members. The owner adds an existing account by email. Members can operate the project. The owner can transfer the project to a member and stays on as a member. API keys, settings, and deletion stay with the current owner.
+- Project members. The owner adds an existing account by email. Members can operate the project. The owner can transfer the project to a member and stays on as a member. API keys, settings, and deletion stay with the current owner. Remove members removes the oldest members, up to 50, and keeps each membership id. The owner stays. A member who already left is left alone. A second call removes none of those members.
 - Monthly job allowances. A developer plan includes 2,000 created jobs per UTC month, and a scale plan includes 50,000. TaskFlow does not collect card payments.
 - Job retention. Finished, failed, and cancelled jobs are deleted after 30 days by default. The owner can choose 1 to 365 days. Waiting and active jobs stay.
 
@@ -213,6 +213,7 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | GET | `/projects/:id/jobs/:jobId` | Job detail |
 | POST | `/projects/:id/jobs/:jobId/retry` | Retry a failed job |
 | GET | `/projects/:id/analytics/overview` | Operational summary |
+| POST | `/projects/:id/members/remove` | Remove up to 50 members and keep their ids |
 
 Routes are project-scoped so a list cannot cross tenants. A user who does not own a project receives `404`, not a hint that the record exists. API keys are bound to one project and carry scopes.
 

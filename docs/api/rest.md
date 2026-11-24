@@ -244,6 +244,8 @@ Live waiting and active counts come from BullMQ. Submitted, completed, and faile
 
 The email must already belong to an account. TaskFlow does not send an invitation message. The owner can add 20 members. A member can submit and inspect work. Changing settings, managing API keys, inviting people, and deleting the project stay with the owner. `POST /projects/:projectId/members/transfer` with `{ "memberId": "mem_..." }` makes that member the owner and keeps the previous owner as a member. API keys stay with the project. `POST /projects/:projectId/members/leave` removes the signed-in member. The owner cannot leave. An account that cannot see the project still receives `404`.
 
+`POST /projects/:projectId/members/remove` with `{ "limit": 20 }` removes the oldest members, up to 50. Each membership keeps its id, name, and email. The owner stays, because the owner is not a member row. A member who already left is left alone. The removed account can no longer see the project. API keys stay with the project. A second call returns `removed: 0`. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`. A member who is not the owner returns `403` `OWNER_REQUIRED`. An API key returns `403`. Someone outside the project returns `404`.
+
 ## Billing
 
 `GET /projects/:projectId/billing` returns the plan, the number of jobs created since the start of the current UTC month, and the allowance. `developer` allows 2,000 jobs. `scale` allows 50,000. `PATCH` with `{ "plan": "scale" }` is owner-only.

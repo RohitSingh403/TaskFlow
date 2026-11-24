@@ -1,5 +1,5 @@
 import { AuditLog, Project, ProjectMember, User, createId, type ProjectDoc, type ProjectMemberDoc } from "@taskflow/server";
-import { MAX_PROJECT_MEMBERS } from "@taskflow/shared";
+import { MAX_PROJECT_MEMBERS, REMOVE_MEMBERS_LIMIT } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 import type { AuthContext } from "../../types.js";
 
@@ -72,6 +72,40 @@ export async function removeMember(project: ProjectDoc, memberId: string, auth: 
     targetId: member.publicId,
     metadata: { email: member.email },
   });
+}
+
+export async function removeMembers(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, REMOVE_MEMBERS_LIMIT);
+  const selected = await ProjectMember.find({
+    projectId: project._id,
+    deletedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const memberIds: string[] = [];
+  let skipped = 0;
+  for (const member of selected) {
+    try {
+      const current = await ProjectMember.findOne({
+        projectId: project._id,
+        publicId: member.publicId,
+        deletedAt: null,
+      }) as ProjectMemberDoc | null;
+      if (!current) {
+        skipped += 1;
+        continue;
+      }
+      await removeMember(project, current.publicId, auth);
+      memberIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { removed: memberIds.length, skipped, memberIds };
 }
 
 export async function transferOwnership(project: ProjectDoc, memberId: string, auth: AuthContext) {
