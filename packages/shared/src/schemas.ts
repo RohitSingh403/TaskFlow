@@ -359,6 +359,10 @@ export const pauseAlertRulesSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const resumeAlertRulesSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const resolveOpenAlertsSchema = z.object({
   ruleId: z.string().trim().min(4).max(40).optional(),
   limit: z.number().int().min(1).max(50).default(20),

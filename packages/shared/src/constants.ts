@@ -39,6 +39,7 @@ export const RESUME_QUEUES_LIMIT = 50;
 export const SILENCE_ALERT_RULES_LIMIT = 50;
 export const UNSILENCE_ALERT_RULES_LIMIT = 50;
 export const PAUSE_ALERT_RULES_LIMIT = 50;
+export const RESUME_ALERT_RULES_LIMIT = 50;
 export const PAUSE_WEBHOOKS_LIMIT = 50;
 export const RESUME_WEBHOOKS_LIMIT = 50;
 export const BILLING_PLANS = ["developer", "scale"] as const;
