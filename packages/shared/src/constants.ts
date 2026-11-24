@@ -41,6 +41,7 @@ export const START_WORKFLOW_RUNS_LIMIT = 50;
 export const DELETE_WORKFLOWS_LIMIT = 50;
 export const PAUSE_QUEUES_LIMIT = 50;
 export const RESUME_QUEUES_LIMIT = 50;
+export const DELETE_QUEUES_LIMIT = 50;
 export const SILENCE_ALERT_RULES_LIMIT = 50;
 export const UNSILENCE_ALERT_RULES_LIMIT = 50;
 export const PAUSE_ALERT_RULES_LIMIT = 50;

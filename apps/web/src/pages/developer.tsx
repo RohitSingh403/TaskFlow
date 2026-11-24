@@ -383,6 +383,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
     ["POST", "/projects/:id/queues/pause", "Pause up to 50 running queues and keep their ids"],
     ["POST", "/projects/:id/queues/resume", "Resume up to 50 paused queues and keep their ids"],
+    ["POST", "/projects/:id/queues/delete", "Delete up to 50 empty queues and keep their ids"],
     ["DELETE", "/projects/:id/queues/:queueId", "Remove an empty queue that nothing still uses"],
   ];
   return (

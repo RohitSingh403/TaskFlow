@@ -206,6 +206,8 @@ export class TaskFlow {
       this.request<{ resumed: number; skipped: number; queueIds: string[] }>("POST", await this.projectPath("/queues/resume"), { body: input }),
     resume: async (queueId: string) => this.request<QueueResource>("POST", await this.projectPath(`/queues/${encodeURIComponent(queueId)}/resume`)),
     delete: async (queueId: string) => this.request<{ id: string; deleted: boolean }>("DELETE", await this.projectPath(`/queues/${encodeURIComponent(queueId)}`)),
+    deleteQueues: async (input: { limit?: number } = {}) =>
+      this.request<{ deleted: number; skipped: number; queueIds: string[] }>("POST", await this.projectPath("/queues/delete"), { body: input }),
   };
 
   readonly schedules = {
