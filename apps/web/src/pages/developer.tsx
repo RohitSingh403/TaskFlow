@@ -375,6 +375,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/webhooks/delete", "Delete up to 50 webhooks and keep their ids"],
     ["POST", "/projects/:id/members", "Add an existing account to the project"],
     ["POST", "/projects/:id/members/transfer", "Make a member the project owner"],
+    ["POST", "/projects/:id/members/remove", "Remove up to 50 members and keep their ids"],
     ["GET", "/projects/:id/billing", "Read this month's job allowance"],
     ["PATCH", "/projects/:id", "Change project settings, including job retention"],
     ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],

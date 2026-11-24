@@ -40,6 +40,18 @@ export function TeamPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not remove the member"),
   });
+  const removeMembers = useMutation({
+    mutationFn: () => api<{ removed: number; skipped: number; memberIds: string[] }>(`/projects/${projectId}/members/remove`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.removed;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Removed 1 member" : `Removed ${count} members`);
+      void client.invalidateQueries({ queryKey: ["members", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not remove members"),
+  });
   const [successor, setSuccessor] = useState("");
   const transfer = useMutation({
     mutationFn: (memberId: string) => api<{ ownerId: string }>(`/projects/${projectId}/members/transfer`, {
@@ -69,11 +81,16 @@ export function TeamPage() {
   const members = listed.data?.data.members ?? [];
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-[28px] font-semibold tracking-tight">Team</h1>
-        <p className="max-w-2xl text-[13px] text-muted">
-          The owner invites an existing account by email. Members can run the project. The owner can hand the project to a member and stays on as a member.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[28px] font-semibold tracking-tight">Team</h1>
+          <p className="max-w-2xl text-[13px] text-muted">
+            The owner invites an existing account by email. Members can run the project. The owner can hand the project to a member and stays on as a member. Remove members removes the oldest members, up to 20, and keeps each membership id. The owner stays. A member who already left is left alone. A second call removes none of those members.
+          </p>
+        </div>
+        {role === "owner" ? (
+          <Button variant="danger" loading={removeMembers.isPending} onClick={() => removeMembers.mutate()}>Remove members</Button>
+        ) : null}
       </div>
       {listed.isError ? <EmptyState title="Team unavailable" body="The request failed. Refresh once the API is reachable." /> : null}
       <Card className="overflow-x-auto">

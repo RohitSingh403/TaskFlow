@@ -321,6 +321,8 @@ export class TaskFlow {
     list: async () => this.request<{ role: "owner" | "member"; members: ProjectMemberResource[] }>("GET", await this.projectPath("/members")),
     invite: async (input: { email: string }) => this.request<ProjectMemberResource>("POST", await this.projectPath("/members"), { body: input }),
     remove: async (memberId: string) => this.request<{ deleted: boolean }>("DELETE", await this.projectPath(`/members/${encodeURIComponent(memberId)}`)),
+    removeMembers: async (input: { limit?: number } = {}) =>
+      this.request<{ removed: number; skipped: number; memberIds: string[] }>("POST", await this.projectPath("/members/remove"), { body: input }),
     leave: async () => this.request<{ left: boolean }>("POST", await this.projectPath("/members/leave")),
     transfer: async (input: { memberId: string }) =>
       this.request<{ ownerId: string; previousOwnerId: string }>("POST", await this.projectPath("/members/transfer"), { body: input }),

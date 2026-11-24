@@ -1,4 +1,4 @@
-import { inviteMemberSchema, transferOwnershipSchema } from "@taskflow/shared";
+import { inviteMemberSchema, removeMembersSchema, transferOwnershipSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { AppError } from "../../errors.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -6,7 +6,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, requireScope, validateBody } from "../../middleware/common.js";
 import { loadProject, requireOwner } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { inviteMember, leaveProject, listMembers, removeMember, transferOwnership } from "./members.service.js";
+import { inviteMember, leaveProject, listMembers, removeMember, removeMembers, transferOwnership } from "./members.service.js";
 
 export const memberRouter = Router({ mergeParams: true });
 
@@ -52,6 +52,17 @@ memberRouter.post(
     }
     await leaveProject(req.project!, req.auth);
     sendOk(res, { left: true });
+  }),
+);
+
+memberRouter.post(
+  "/remove",
+  writeLimiter,
+  requireScope("jobs:write"),
+  requireOwner,
+  validateBody(removeMembersSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await removeMembers(req.project!, req.body, req.auth!));
   }),
 );
 
