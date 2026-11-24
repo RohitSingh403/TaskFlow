@@ -9,7 +9,7 @@ import {
   type AlertRuleDoc,
   type ProjectDoc,
 } from "@taskflow/server";
-import { MAX_ALERT_RULES_PER_PROJECT, type AlertType } from "@taskflow/shared";
+import { MAX_ALERT_RULES_PER_PROJECT, SILENCE_ALERT_RULES_LIMIT, type AlertType } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 import type { AuthContext } from "../../types.js";
 
@@ -209,6 +209,42 @@ export async function silenceAlertRule(project: ProjectDoc, ruleId: string, dura
     metadata: { until: rule.silencedUntil.toISOString(), durationMs },
   });
   return rule;
+}
+
+export async function silenceAlertRules(
+  project: ProjectDoc,
+  input: { durationMs: number; limit?: number },
+  auth: AuthContext,
+  now = new Date(),
+) {
+  const limit = Math.min(input.limit ?? 20, SILENCE_ALERT_RULES_LIMIT);
+  const open = await AlertRule.find({
+    projectId: project._id,
+    deletedAt: null,
+    $or: [{ silencedUntil: null }, { silencedUntil: { $lte: now } }],
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const ruleIds: string[] = [];
+  let skipped = 0;
+  for (const rule of open) {
+    try {
+      const current = await AlertRule.findOne({ projectId: project._id, publicId: rule.publicId, deletedAt: null }) as AlertRuleDoc | null;
+      if (!current || (current.silencedUntil && current.silencedUntil.getTime() > now.getTime())) {
+        skipped += 1;
+        continue;
+      }
+      await silenceAlertRule(project, current.publicId, input.durationMs, auth, now);
+      ruleIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { silenced: ruleIds.length, skipped, ruleIds };
 }
 
 export async function unsilenceAlertRule(project: ProjectDoc, ruleId: string, auth: AuthContext) {
