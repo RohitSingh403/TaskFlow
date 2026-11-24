@@ -115,6 +115,18 @@ export function JobsPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not replay jobs"),
   });
+  const removeJobs = useMutation({
+    mutationFn: () => api<{ removed: number; skipped: number; jobIds: string[] }>(`/projects/${projectId}/jobs/remove`, {
+      method: "POST",
+      body: JSON.stringify(queue ? { queue, limit: 20 } : { limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.removed;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Removed 1 job" : `Removed ${count} jobs`);
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not remove jobs"),
+  });
   if (!projectId) return <EmptyState title="Choose a project" body="Create a project before listing jobs." />;
   const queuedDelayValue = Number(queuedDelay);
   const queuedDelayReady = queuedDelay.trim() !== "" && Number.isInteger(queuedDelayValue) && queuedDelayValue >= 0 && queuedDelayValue <= 30 * 24 * 60 * 60 * 1000;
@@ -130,7 +142,7 @@ export function JobsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Jobs</h1>
-          <p className="max-w-3xl text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Reschedule queued gives the oldest waiting and delayed jobs a new delay, up to 20, and keeps each job id. The delay is measured from now. A waiting workflow step stays on its run. Set priority changes those jobs. Move queued sends them to another queue. Run delayed runs the oldest delayed jobs now. Cancel queued removes waiting and delayed jobs. Active jobs stay. Run again copies the oldest completed, failed, and cancelled jobs, up to 20, into new waiting jobs. The originals stay. A second call copies those finished jobs again.</p>
+          <p className="max-w-3xl text-[13px] text-muted">Application records mirror BullMQ events. From and to limit the list to jobs created in that window. An idempotency key finds the one job that used it. Run now, Reschedule, Update priority, and Move change a waiting or delayed job in place. Reschedule queued gives the oldest waiting and delayed jobs a new delay, up to 20, and keeps each job id. The delay is measured from now. A waiting workflow step stays on its run. Set priority changes those jobs. Move queued sends them to another queue. Run delayed runs the oldest delayed jobs now. Cancel queued removes waiting and delayed jobs. Active jobs stay. Run again copies the oldest completed, failed, and cancelled jobs, up to 20, into new waiting jobs. The originals stay. A second call copies those finished jobs again. Remove jobs takes the oldest jobs that are not active, up to 20, off the queue and keeps each job id. A completed job stays completed. Any other removed job becomes cancelled. A job that is already removed is left alone. A second call removes none of those jobs.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <TextInput className="w-36" value={queuedDelay} onChange={(event) => setQueuedDelay(event.target.value)} inputMode="numeric" placeholder="Delay (ms)" aria-label="Queued delay (ms)" />
@@ -149,6 +161,7 @@ export function JobsPage() {
           <Button variant="secondary" loading={promoteDelayed.isPending} onClick={() => promoteDelayed.mutate()}>Run delayed</Button>
           <Button variant="secondary" loading={cancelQueued.isPending} onClick={() => cancelQueued.mutate()}>Cancel queued</Button>
           <Button variant="secondary" loading={replayFinished.isPending} onClick={() => replayFinished.mutate()}>Run again</Button>
+          <Button variant="danger" loading={removeJobs.isPending} onClick={() => removeJobs.mutate()}>Remove jobs</Button>
         </div>
       </div>
       <div className="flex flex-wrap gap-2">

@@ -15,6 +15,7 @@ An API request returns as soon as the job is accepted. It does not wait for the 
 - Job submission by session or API key, with priority, delay, timeout, retry, and idempotency keys.
 - A jobs list window. `from` and `to` keep jobs created in that range. Either side can be left open. An idempotency key returns the one job that used it.
 - Run again. Replaying a job queues a new copy with the same handler and payload. The original job stays as it is. Run again on the jobs page copies the oldest completed, failed, and cancelled jobs, up to 50, into new waiting jobs. A second call copies those finished jobs again.
+- Remove jobs. Removing a job takes it off the queue and keeps the record. Remove jobs takes the oldest jobs that are not active, up to 50. A completed job stays completed. Any other removed job becomes cancelled. A second call removes none of those jobs.
 - Run now. A delayed job moves onto the queue under the same id. The monthly allowance stays where it is. Run delayed does that for the oldest delayed jobs, up to 50, and keeps each job id.
 - Reschedule. A waiting or delayed job can take a new delay, up to 30 days. The same job id stays, and the monthly allowance does not change. Reschedule queued does that for the oldest waiting and delayed jobs, up to 50. The delay is measured from the call. A waiting workflow step stays on its run.
 - Update priority. A waiting or delayed job can move between high, medium, and low. The same job id stays, and the monthly allowance does not change. Set priority does that for the oldest waiting and delayed jobs, up to 50. A job that already has that priority is left alone.
@@ -161,6 +162,7 @@ Versioned under `/api/v1`. Successful responses use `{ success, data, meta }`. E
 | POST | `/projects/:id/jobs` | Submit a job |
 | POST | `/projects/:id/jobs/promote-delayed` | Run up to 50 delayed jobs now and keep their ids |
 | POST | `/projects/:id/jobs/replay` | Copy up to 50 finished jobs into new waiting jobs |
+| POST | `/projects/:id/jobs/remove` | Remove up to 50 jobs that are not active and keep their ids |
 | POST | `/projects/:id/jobs/priority` | Change the priority of up to 50 waiting or delayed jobs |
 | POST | `/projects/:id/jobs/move` | Move up to 50 waiting or delayed jobs to another queue |
 | POST | `/projects/:id/jobs/reschedule` | Give up to 50 waiting or delayed jobs a new delay |
