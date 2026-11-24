@@ -335,6 +335,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/alerts/rules/:ruleId/silence", "Skip a rule until a chosen time"],
     ["POST", "/projects/:id/alerts/rules/silence", "Silence up to 50 rules that are still checking and keep their ids"],
     ["POST", "/projects/:id/alerts/rules/unsilence", "Clear silence on up to 50 rules and keep their ids"],
+    ["POST", "/projects/:id/alerts/rules/pause", "Pause up to 50 enabled rules and keep their ids"],
     ["POST", "/projects/:id/alerts/resolve-open", "Resolve up to 50 open alerts and keep their ids"],
     ["POST", "/projects/:id/alerts/:alertId/resolve", "Mark an alert resolved"],
     ["POST", "/projects/:id/webhooks", "Register a signed outbound endpoint"],

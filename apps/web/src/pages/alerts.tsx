@@ -97,6 +97,18 @@ export function AlertsPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not clear silences"),
   });
+  const pauseRules = useMutation({
+    mutationFn: () => api<{ paused: number; skipped: number; ruleIds: string[] }>(`/projects/${projectId}/alerts/rules/pause`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.paused;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Paused 1 rule" : `Paused ${count} rules`);
+      void client.invalidateQueries({ queryKey: ["alert-rules", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not pause rules"),
+  });
 
   if (!projectId) return <EmptyState title="Choose a project" body="Alert rules belong to a project." />;
   const ruleRows = rules.data?.data ?? [];
@@ -107,7 +119,7 @@ export function AlertsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Alerts</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. Silence rules does that for the oldest rules that are still checking, up to 20, and keeps each rule id. Clear silences starts the oldest silenced rules checking again, up to 20, and keeps each rule id. A rule that is already checking is left alone. The rule stays enabled. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id.
+            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. Silence rules does that for the oldest rules that are still checking, up to 20, and keeps each rule id. Clear silences starts the oldest silenced rules checking again, up to 20, and keeps each rule id. A rule that is already checking is left alone. The rule stays enabled. Pause rules stops the oldest enabled rules, up to 20, and keeps each rule id and its silence. A rule that is already paused is left alone. A paused rule is not checked. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -116,6 +128,7 @@ export function AlertsPage() {
           </SelectInput>
           <Button variant="secondary" loading={silenceRules.isPending} onClick={() => silenceRules.mutate()}>Silence rules</Button>
           <Button variant="secondary" loading={clearSilences.isPending} onClick={() => clearSilences.mutate()}>Clear silences</Button>
+          <Button variant="secondary" loading={pauseRules.isPending} onClick={() => pauseRules.mutate()}>Pause rules</Button>
           <Button onClick={() => setOpen(true)}>New rule</Button>
         </div>
       </div>
