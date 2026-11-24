@@ -23,6 +23,7 @@ import {
   PAUSE_WORKFLOWS_LIMIT,
   RESUME_WORKFLOWS_LIMIT,
   CANCEL_WORKFLOW_RUNS_LIMIT,
+  START_WORKFLOW_RUNS_LIMIT,
   findUnsafeKey,
   handlerSchemas,
   isHandlerName,
@@ -296,6 +297,53 @@ export async function resumeWorkflows(project: ProjectDoc, input: { limit?: numb
     }
   }
   return { resumed: workflowIds.length, skipped, workflowIds };
+}
+
+export async function startWorkflowRuns(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, START_WORKFLOW_RUNS_LIMIT);
+  const selected = await Workflow.find({
+    projectId: project._id,
+    deletedAt: null,
+    paused: false,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const stepCount = selected.reduce((sum, workflow) => sum + workflow.steps.length, 0);
+  if (stepCount > 0) {
+    try {
+      await assertJobAllowance(project, stepCount);
+    } catch (error) {
+      if (error instanceof PlanLimitError) throw new AppError(402, "PLAN_LIMIT", error.message);
+      throw error;
+    }
+  }
+  const workflowIds: string[] = [];
+  const runIds: string[] = [];
+  let skipped = 0;
+  for (const workflow of selected) {
+    try {
+      const current = await Workflow.findOne({
+        projectId: project._id,
+        publicId: workflow.publicId,
+        deletedAt: null,
+        paused: false,
+      }) as WorkflowDoc | null;
+      if (!current) {
+        skipped += 1;
+        continue;
+      }
+      const started = await startWorkflowRun(project, current.publicId, auth);
+      workflowIds.push(current.publicId);
+      runIds.push(started.run.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 400 || error.status === 404 || error.status === 409 || error.status === 429)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { started: runIds.length, skipped, workflowIds, runIds };
 }
 
 export async function deleteWorkflow(project: ProjectDoc, workflowId: string, auth: AuthContext) {
