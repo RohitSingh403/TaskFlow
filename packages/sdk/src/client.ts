@@ -282,6 +282,8 @@ export class TaskFlow {
       this.request<WebhookEndpoint>("PATCH", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}`), { body: input }),
     rotate: async (webhookId: string) => this.request<WebhookEndpoint & { secret: string }>("POST", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/rotate`)),
     test: async (webhookId: string) => this.request<WebhookDelivery>("POST", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/test`)),
+    testWebhooks: async (input: { limit?: number } = {}) =>
+      this.request<{ queued: number; skipped: number; webhookIds: string[]; deliveryIds: string[] }>("POST", await this.projectPath("/webhooks/test"), { body: input }),
     delete: async (webhookId: string) => this.request<{ deleted: boolean }>("DELETE", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}`)),
     deliveries: async (webhookId: string) => this.request<WebhookDelivery[]>("GET", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/deliveries`)),
     redeliver: async (webhookId: string, deliveryId: string) =>
