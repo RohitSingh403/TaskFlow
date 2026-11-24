@@ -280,6 +280,8 @@ export class TaskFlow {
       this.request<{ redelivered: number; skipped: number; deliveryIds: string[] }>("POST", await this.projectPath("/webhooks/redeliver-failed"), { body: input }),
     pauseWebhooks: async (input: { limit?: number } = {}) =>
       this.request<{ paused: number; skipped: number; webhookIds: string[] }>("POST", await this.projectPath("/webhooks/pause"), { body: input }),
+    resumeWebhooks: async (input: { limit?: number } = {}) =>
+      this.request<{ resumed: number; skipped: number; webhookIds: string[] }>("POST", await this.projectPath("/webhooks/resume"), { body: input }),
   };
 
   readonly billing = {
