@@ -9,7 +9,7 @@ import {
   type AlertRuleDoc,
   type ProjectDoc,
 } from "@taskflow/server";
-import { MAX_ALERT_RULES_PER_PROJECT, SILENCE_ALERT_RULES_LIMIT, UNSILENCE_ALERT_RULES_LIMIT, type AlertType } from "@taskflow/shared";
+import { MAX_ALERT_RULES_PER_PROJECT, PAUSE_ALERT_RULES_LIMIT, SILENCE_ALERT_RULES_LIMIT, UNSILENCE_ALERT_RULES_LIMIT, type AlertType } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 import type { AuthContext } from "../../types.js";
 
@@ -276,6 +276,37 @@ export async function unsilenceAlertRules(project: ProjectDoc, input: { limit?: 
     }
   }
   return { unsilenced: ruleIds.length, skipped, ruleIds };
+}
+
+export async function pauseAlertRules(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, PAUSE_ALERT_RULES_LIMIT);
+  const enabled = await AlertRule.find({
+    projectId: project._id,
+    deletedAt: null,
+    enabled: true,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const ruleIds: string[] = [];
+  let skipped = 0;
+  for (const rule of enabled) {
+    try {
+      const current = await AlertRule.findOne({ projectId: project._id, publicId: rule.publicId, deletedAt: null }) as AlertRuleDoc | null;
+      if (!current || !current.enabled) {
+        skipped += 1;
+        continue;
+      }
+      await updateAlertRule(project, current.publicId, { enabled: false }, auth);
+      ruleIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { paused: ruleIds.length, skipped, ruleIds };
 }
 
 export async function unsilenceAlertRule(project: ProjectDoc, ruleId: string, auth: AuthContext) {
