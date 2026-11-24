@@ -1,4 +1,4 @@
-import { pauseWebhooksSchema, redeliverFailedWebhooksSchema, resumeWebhooksSchema, rotateWebhooksSchema, testWebhooksSchema, updateWebhookSchema, webhookSchema } from "@taskflow/shared";
+import { deleteWebhooksSchema, pauseWebhooksSchema, redeliverFailedWebhooksSchema, resumeWebhooksSchema, rotateWebhooksSchema, testWebhooksSchema, updateWebhookSchema, webhookSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toWebhook, toWebhookDelivery } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -9,6 +9,7 @@ import { readLimiter, writeLimiter } from "../../rate-limit.js";
 import {
   createWebhook,
   deleteWebhook,
+  deleteWebhooks,
   listWebhookDeliveries,
   listWebhooks,
   pauseWebhooks,
@@ -86,6 +87,16 @@ webhookRouter.post(
   validateBody(rotateWebhooksSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, await rotateWebhookSecrets(req.project!, req.body, req.auth!));
+  }),
+);
+
+webhookRouter.post(
+  "/delete",
+  writeLimiter,
+  requireScope("jobs:write"),
+  validateBody(deleteWebhooksSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await deleteWebhooks(req.project!, req.body, req.auth!));
   }),
 );
 

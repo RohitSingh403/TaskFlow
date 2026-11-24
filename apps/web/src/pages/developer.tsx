@@ -369,6 +369,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/webhooks/resume", "Resume up to 50 paused webhooks and keep their ids"],
     ["POST", "/projects/:id/webhooks/test", "Queue a test for each of up to 50 enabled webhooks"],
     ["POST", "/projects/:id/webhooks/rotate", "Replace the signing secret on up to 50 webhooks"],
+    ["POST", "/projects/:id/webhooks/delete", "Delete up to 50 webhooks and keep their ids"],
     ["POST", "/projects/:id/members", "Add an existing account to the project"],
     ["POST", "/projects/:id/members/transfer", "Make a member the project owner"],
     ["GET", "/projects/:id/billing", "Read this month's job allowance"],

@@ -438,6 +438,10 @@ export const rotateWebhooksSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const deleteWebhooksSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const updateWebhookSchema = z
   .object({
     url: z.string().trim().url().max(500).optional(),

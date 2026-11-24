@@ -192,6 +192,8 @@ The create and rotate responses include `secret` once. Later reads return `secre
 
 `POST /projects/:projectId/webhooks/rotate` with `{ "limit": 20 }` does that for the oldest endpoints, up to 50. Each endpoint keeps its id, URL, and events. A paused endpoint is included. A deleted endpoint is left alone. The response includes each new secret once. Later reads return the prefix only. A second call replaces those secrets again. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`.
 
+`POST /projects/:projectId/webhooks/delete` with `{ "limit": 20 }` deletes the oldest endpoints, up to 50. Each endpoint keeps its id. The endpoint is disabled and leaves the list. A paused endpoint is included. An endpoint that is already deleted is left alone. A second call returns `deleted: 0`. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`. A reader key returns `403`.
+
 TaskFlow POSTs the same JSON body on every attempt. Headers are `TaskFlow-Delivery`, `TaskFlow-Event`, `TaskFlow-Timestamp`, and `TaskFlow-Signature` (`t=<unix>,v1=<hex>`). The signature is HMAC-SHA256 of `<timestamp>.<raw body>` using the current secret. A receiver should treat the delivery id as its dedupe key. Redirects are not followed. A non-2xx response is retried up to five times. A project can keep 10 endpoints.
 
 `POST /projects/:projectId/webhooks/:webhookId/test` queues one `webhook.test` delivery for that endpoint. It does not wait for a job, and the endpoint does not need to subscribe to the test event. The body is `{ "webhookId", "test": true }` inside the normal signed envelope. Each call creates a new delivery id. A disabled endpoint returns `409` `WEBHOOK_DISABLED`.

@@ -13,7 +13,7 @@ import {
   type WebhookDeliveryDoc,
   type WebhookDoc,
 } from "@taskflow/server";
-import { MAX_WEBHOOKS_PER_PROJECT, PAUSE_WEBHOOKS_LIMIT, RESUME_WEBHOOKS_LIMIT, ROTATE_WEBHOOKS_LIMIT, TEST_WEBHOOKS_LIMIT, type WebhookEvent } from "@taskflow/shared";
+import { DELETE_WEBHOOKS_LIMIT, MAX_WEBHOOKS_PER_PROJECT, PAUSE_WEBHOOKS_LIMIT, RESUME_WEBHOOKS_LIMIT, ROTATE_WEBHOOKS_LIMIT, TEST_WEBHOOKS_LIMIT, type WebhookEvent } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 import type { AuthContext } from "../../types.js";
 
@@ -300,6 +300,40 @@ export async function deleteWebhook(project: ProjectDoc, webhookId: string, auth
     targetId: webhook.publicId,
     metadata: {},
   });
+}
+
+export async function deleteWebhooks(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, DELETE_WEBHOOKS_LIMIT);
+  const selected = await Webhook.find({
+    projectId: project._id,
+    deletedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const webhookIds: string[] = [];
+  let skipped = 0;
+  for (const webhook of selected) {
+    try {
+      const current = await Webhook.findOne({
+        projectId: project._id,
+        publicId: webhook.publicId,
+        deletedAt: null,
+      }) as WebhookDoc | null;
+      if (!current) {
+        skipped += 1;
+        continue;
+      }
+      await deleteWebhook(project, current.publicId, auth);
+      webhookIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { deleted: webhookIds.length, skipped, webhookIds };
 }
 
 export async function redeliverWebhook(project: ProjectDoc, webhookId: string, deliveryId: string, auth: AuthContext) {
