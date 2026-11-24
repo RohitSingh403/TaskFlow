@@ -85,6 +85,18 @@ export function AlertsPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not silence rules"),
   });
+  const clearSilences = useMutation({
+    mutationFn: () => api<{ unsilenced: number; skipped: number; ruleIds: string[] }>(`/projects/${projectId}/alerts/rules/unsilence`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.unsilenced;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Cleared 1 silence" : `Cleared ${count} silences`);
+      void client.invalidateQueries({ queryKey: ["alert-rules", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not clear silences"),
+  });
 
   if (!projectId) return <EmptyState title="Choose a project" body="Alert rules belong to a project." />;
   const ruleRows = rules.data?.data ?? [];
@@ -95,7 +107,7 @@ export function AlertsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Alerts</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. Silence rules does that for the oldest rules that are still checking, up to 20, and keeps each rule id. A rule that is already silenced is left alone. The rule stays enabled. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id.
+            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. Silence rules does that for the oldest rules that are still checking, up to 20, and keeps each rule id. Clear silences starts the oldest silenced rules checking again, up to 20, and keeps each rule id. A rule that is already checking is left alone. The rule stays enabled. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -103,6 +115,7 @@ export function AlertsPage() {
             {silenceChoices.map((choice) => <option key={choice.durationMs} value={choice.durationMs}>{choice.label}</option>)}
           </SelectInput>
           <Button variant="secondary" loading={silenceRules.isPending} onClick={() => silenceRules.mutate()}>Silence rules</Button>
+          <Button variant="secondary" loading={clearSilences.isPending} onClick={() => clearSilences.mutate()}>Clear silences</Button>
           <Button onClick={() => setOpen(true)}>New rule</Button>
         </div>
       </div>
