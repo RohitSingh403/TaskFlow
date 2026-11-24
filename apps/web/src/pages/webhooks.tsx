@@ -104,6 +104,18 @@ export function WebhooksPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not resume webhooks"),
   });
+  const testWebhooks = useMutation({
+    mutationFn: () => api<{ queued: number; skipped: number; webhookIds: string[]; deliveryIds: string[] }>(`/projects/${projectId}/webhooks/test`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.queued;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Queued 1 test" : `Queued ${count} tests`);
+      void client.invalidateQueries({ queryKey: ["webhooks", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not send webhook tests"),
+  });
 
   if (!projectId) return <EmptyState title="Choose a project" body="Webhooks belong to a project." />;
   const hooks = listed.data?.data.webhooks ?? [];
@@ -114,12 +126,13 @@ export function WebhooksPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Webhooks</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Edit changes the URL or events and keeps the endpoint id and signing secret. Pause webhooks stops the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A webhook that is already paused is left alone. Resume webhooks starts the oldest paused endpoints again, up to 20, and keeps each endpoint id and signing secret. A webhook that is already enabled is left alone. Send test queues a webhook.test delivery without waiting for a job. A paused endpoint refuses that test. An enabled endpoint can accept it. Rotate replaces the signing secret. Deliveries that have not been sent use the current URL and secret. Send again queues that same delivery id. Send failed again queues the oldest failed deliveries, up to 20. Each delivery keeps its id. Receivers should ignore a delivery id they have already handled.
+            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Edit changes the URL or events and keeps the endpoint id and signing secret. Pause webhooks stops the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A webhook that is already paused is left alone. Resume webhooks starts the oldest paused endpoints again, up to 20, and keeps each endpoint id and signing secret. A webhook that is already enabled is left alone. Send test queues a webhook.test delivery without waiting for a job. A paused endpoint refuses that test. Send tests does that for the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A second call queues another test. An enabled endpoint can accept it. Rotate replaces the signing secret. Deliveries that have not been sent use the current URL and secret. Send again queues that same delivery id. Send failed again queues the oldest failed deliveries, up to 20. Each delivery keeps its id. Receivers should ignore a delivery id they have already handled.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" loading={pauseWebhooks.isPending} onClick={() => pauseWebhooks.mutate()}>Pause webhooks</Button>
           <Button variant="secondary" loading={resumeWebhooks.isPending} onClick={() => resumeWebhooks.mutate()}>Resume webhooks</Button>
+          <Button variant="secondary" loading={testWebhooks.isPending} onClick={() => testWebhooks.mutate()}>Send tests</Button>
           <Button onClick={() => setOpen(true)}>New webhook</Button>
         </div>
       </div>
