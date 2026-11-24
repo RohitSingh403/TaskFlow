@@ -288,6 +288,10 @@ export const startWorkflowRunsSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const deleteWorkflowsSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const pauseQueuesSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });

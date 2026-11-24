@@ -86,6 +86,18 @@ export function WorkflowsPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not cancel runs"),
   });
+  const deleteWorkflows = useMutation({
+    mutationFn: () => api<{ deleted: number; skipped: number; workflowIds: string[] }>(`/projects/${projectId}/workflows/delete`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.deleted;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Deleted 1 workflow" : `Deleted ${count} workflows`);
+      void client.invalidateQueries({ queryKey: ["workflows", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not delete workflows"),
+  });
   const remove = useMutation({
     mutationFn: (workflowId: string) => api(`/projects/${projectId}/workflows/${workflowId}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -104,7 +116,7 @@ export function WorkflowsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Workflows</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. Steps replaces the tree for the next run. A run that already started keeps the steps it began with. Pause stops new runs. Pause workflows does that for the oldest running workflows, up to 20, and keeps each workflow id. Resume workflows starts the oldest paused workflows again, up to 20, and keeps each workflow id. A workflow that is already running is left alone. Run workflows starts one run of each of the oldest workflows that can still accept a run, up to 20, and keeps each workflow id. A paused workflow is left alone, and so is a deleted workflow. A second call starts another run. Cancel runs stops the oldest waiting runs, up to 20, and keeps each run id. A run that is already finished, already cancelled, or has an active step is left alone. A run whose workflow was deleted is left alone.
+            A workflow is a tree of jobs. Earlier steps finish before the step that waits on them. Each step can lead to only one later step. Edit changes the name or description and keeps the workflow id. Steps replaces the tree for the next run. A run that already started keeps the steps it began with. Pause stops new runs. Pause workflows does that for the oldest running workflows, up to 20, and keeps each workflow id. Resume workflows starts the oldest paused workflows again, up to 20, and keeps each workflow id. A workflow that is already running is left alone. Run workflows starts one run of each of the oldest workflows that can still accept a run, up to 20, and keeps each workflow id. A paused workflow is left alone, and so is a deleted workflow. A second call starts another run. Cancel runs stops the oldest waiting runs, up to 20, and keeps each run id. A run that is already finished, already cancelled, or has an active step is left alone. A run whose workflow was deleted is left alone. Delete workflows removes the oldest workflows, up to 20, including a paused workflow, and keeps each workflow id. A workflow that is already deleted is left alone. A second call deletes none of those workflows.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -112,6 +124,7 @@ export function WorkflowsPage() {
           <Button variant="secondary" loading={resumeWorkflows.isPending} onClick={() => resumeWorkflows.mutate()}>Resume workflows</Button>
           <Button variant="secondary" loading={startRuns.isPending} onClick={() => startRuns.mutate()}>Run workflows</Button>
           <Button variant="secondary" loading={cancelRuns.isPending} onClick={() => cancelRuns.mutate()}>Cancel runs</Button>
+          <Button variant="danger" loading={deleteWorkflows.isPending} onClick={() => deleteWorkflows.mutate()}>Delete workflows</Button>
           <Button onClick={() => setOpen(true)}>New workflow</Button>
         </div>
       </div>
