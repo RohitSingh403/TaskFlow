@@ -110,6 +110,8 @@ Lists also accept `dismissed=true` or `dismissed=false`. Omitting it returns bot
 
 `POST /projects/:projectId/schedules/resume` with `{ "limit": 20 }` resumes the oldest paused schedules, up to 50. Each schedule keeps its id. `nextRunAt` stays when it is still in the future, and moves forward when it is already past, using the same rule as a single resume. A schedule that is already running is left alone, and so is a deleted schedule. A second call returns `resumed: 0`. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`.
 
+`POST /projects/:projectId/schedules/run` with `{ "limit": 20 }` queues one job for each of the oldest schedules, up to 50. Each schedule keeps its id, and `nextRunAt` stays where it is. A paused schedule can still run. A deleted schedule is left alone. Each job counts toward the monthly allowance. The call checks that allowance before it queues any job, and returns `402` `PLAN_LIMIT` when the allowance cannot cover the whole batch. A queue that is at its waiting-job ceiling is skipped. A second call queues another job for each schedule that is still there. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`.
+
 `POST /projects/:projectId/schedules/:scheduleId/run` queues one job immediately. It does not change `nextRunAt`. A paused schedule can still be run. The job counts toward the monthly allowance. A second call creates another job. If the scheduler is down for more than a minute, missed cron ticks are still skipped.
 
 ## Workflows

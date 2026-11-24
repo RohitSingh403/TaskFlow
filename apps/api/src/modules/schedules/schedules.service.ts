@@ -3,6 +3,7 @@ import {
   CronError,
   PlanLimitError,
   QueueConfig,
+  assertJobAllowance,
   runScheduleNow,
   Schedule,
   createId,
@@ -14,6 +15,7 @@ import {
   MAX_SCHEDULES_PER_PROJECT,
   PAUSE_SCHEDULES_LIMIT,
   RESUME_SCHEDULES_LIMIT,
+  RUN_SCHEDULES_LIMIT,
   findUnsafeKey,
   handlerSchemas,
   isHandlerName,
@@ -219,6 +221,46 @@ export async function resumeSchedules(project: ProjectDoc, input: { limit?: numb
     scheduleIds.push(schedule.publicId);
   }
   return { resumed: scheduleIds.length, scheduleIds };
+}
+
+export async function runSchedules(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, RUN_SCHEDULES_LIMIT);
+  const selected = await Schedule.find({
+    projectId: project._id,
+    deletedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  if (selected.length > 0) {
+    try {
+      await assertJobAllowance(project, selected.length);
+    } catch (error) {
+      if (error instanceof PlanLimitError) throw new AppError(402, "PLAN_LIMIT", error.message);
+      throw error;
+    }
+  }
+  const scheduleIds: string[] = [];
+  const jobIds: string[] = [];
+  let skipped = 0;
+  for (const schedule of selected) {
+    try {
+      const current = await Schedule.findOne({ projectId: project._id, publicId: schedule.publicId, deletedAt: null }) as ScheduleDoc | null;
+      if (!current) {
+        skipped += 1;
+        continue;
+      }
+      const job = await triggerSchedule(project, current, auth);
+      scheduleIds.push(current.publicId);
+      jobIds.push(job.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 400 || error.status === 404 || error.status === 409 || error.status === 429)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { queued: jobIds.length, skipped, scheduleIds, jobIds };
 }
 
 export async function setSchedulePaused(project: ProjectDoc, schedule: ScheduleDoc, paused: boolean, auth: AuthContext) {
