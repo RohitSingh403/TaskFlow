@@ -388,6 +388,10 @@ export const redeliverFailedWebhooksSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const pauseWebhooksSchema = z.object({
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const updateWebhookSchema = z
   .object({
     url: z.string().trim().url().max(500).optional(),

@@ -186,6 +186,8 @@ TaskFlow POSTs the same JSON body on every attempt. Headers are `TaskFlow-Delive
 
 `POST /projects/:projectId/webhooks/redeliver-failed` with `{ "webhookId": "wh_...", "limit": 20 }` queues the oldest failed deliveries again, up to 50. Each delivery keeps its id. Leave `webhookId` out to include every endpoint. A pending or succeeded delivery is left alone. A second call does not queue those deliveries again. A paused endpoint named in `webhookId` returns `409` `WEBHOOK_DISABLED`, and its deliveries stay failed. When `webhookId` is left out, a paused endpoint is skipped. An unknown endpoint returns `404` `WEBHOOK_NOT_FOUND`. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`.
 
+`POST /projects/:projectId/webhooks/pause` with `{ "limit": 20 }` pauses the oldest enabled endpoints, up to 50. Each endpoint keeps its id, URL, events, and signing secret. A webhook that is already paused is left alone, and so is a deleted webhook. A paused endpoint returns `409` `WEBHOOK_DISABLED` for a new test delivery. A second call returns `paused: 0`. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`.
+
 ## Queues
 
 `DELETE /projects/:projectId/queues/:queueId` removes the queue from the project. Waiting, delayed, active, and paused jobs return `409` `QUEUE_NOT_EMPTY`. Pausing the queue does not make those jobs disappear. A schedule or workflow that still names the queue returns `409` `QUEUE_IN_USE`. Finished and failed job records stay and keep their ids. The name can be used again after the delete.

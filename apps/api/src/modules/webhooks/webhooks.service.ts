@@ -13,7 +13,7 @@ import {
   type WebhookDeliveryDoc,
   type WebhookDoc,
 } from "@taskflow/server";
-import { MAX_WEBHOOKS_PER_PROJECT, type WebhookEvent } from "@taskflow/shared";
+import { MAX_WEBHOOKS_PER_PROJECT, PAUSE_WEBHOOKS_LIMIT, type WebhookEvent } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 import type { AuthContext } from "../../types.js";
 
@@ -100,6 +100,37 @@ export async function updateWebhook(
     },
   });
   return webhook;
+}
+
+export async function pauseWebhooks(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, PAUSE_WEBHOOKS_LIMIT);
+  const enabled = await Webhook.find({
+    projectId: project._id,
+    deletedAt: null,
+    enabled: true,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const webhookIds: string[] = [];
+  let skipped = 0;
+  for (const webhook of enabled) {
+    try {
+      const current = await Webhook.findOne({ projectId: project._id, publicId: webhook.publicId, deletedAt: null }) as WebhookDoc | null;
+      if (!current || !current.enabled) {
+        skipped += 1;
+        continue;
+      }
+      await updateWebhook(project, current.publicId, { enabled: false }, auth);
+      webhookIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { paused: webhookIds.length, skipped, webhookIds };
 }
 
 export async function rotateWebhookSecret(project: ProjectDoc, webhookId: string, auth: AuthContext) {
