@@ -121,6 +121,18 @@ export function AlertsPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not resume rules"),
   });
+  const deleteRules = useMutation({
+    mutationFn: () => api<{ deleted: number; skipped: number; ruleIds: string[] }>(`/projects/${projectId}/alerts/rules/delete`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.deleted;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Deleted 1 rule" : `Deleted ${count} rules`);
+      void client.invalidateQueries({ queryKey: ["alert-rules", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not delete rules"),
+  });
 
   if (!projectId) return <EmptyState title="Choose a project" body="Alert rules belong to a project." />;
   const ruleRows = rules.data?.data ?? [];
@@ -131,7 +143,7 @@ export function AlertsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Alerts</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. Silence rules does that for the oldest rules that are still checking, up to 20, and keeps each rule id. Clear silences starts the oldest silenced rules checking again, up to 20, and keeps each rule id. A rule that is already checking is left alone. The rule stays enabled. Pause rules stops the oldest enabled rules, up to 20, and keeps each rule id and its silence. A rule that is already paused is left alone. A paused rule is not checked. Resume rules starts the oldest paused rules checking again, up to 20, and keeps each rule id and its silence. A rule that is already enabled is left alone. A silence that is still in the future keeps that rule from opening an alert. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id.
+            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. Silence rules does that for the oldest rules that are still checking, up to 20, and keeps each rule id. Clear silences starts the oldest silenced rules checking again, up to 20, and keeps each rule id. A rule that is already checking is left alone. The rule stays enabled. Pause rules stops the oldest enabled rules, up to 20, and keeps each rule id and its silence. A rule that is already paused is left alone. A paused rule is not checked. Resume rules starts the oldest paused rules checking again, up to 20, and keeps each rule id and its silence. A rule that is already enabled is left alone. A silence that is still in the future keeps that rule from opening an alert. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id. Delete rules removes the oldest rules, up to 20, including a paused rule and a silenced rule, and keeps each rule id. A rule that is already deleted is left alone. A second call deletes none of those rules.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -142,6 +154,7 @@ export function AlertsPage() {
           <Button variant="secondary" loading={clearSilences.isPending} onClick={() => clearSilences.mutate()}>Clear silences</Button>
           <Button variant="secondary" loading={pauseRules.isPending} onClick={() => pauseRules.mutate()}>Pause rules</Button>
           <Button variant="secondary" loading={resumeRules.isPending} onClick={() => resumeRules.mutate()}>Resume rules</Button>
+          <Button variant="danger" loading={deleteRules.isPending} onClick={() => deleteRules.mutate()}>Delete rules</Button>
           <Button onClick={() => setOpen(true)}>New rule</Button>
         </div>
       </div>
