@@ -13,7 +13,7 @@ import {
   type WebhookDeliveryDoc,
   type WebhookDoc,
 } from "@taskflow/server";
-import { MAX_WEBHOOKS_PER_PROJECT, PAUSE_WEBHOOKS_LIMIT, RESUME_WEBHOOKS_LIMIT, TEST_WEBHOOKS_LIMIT, type WebhookEvent } from "@taskflow/shared";
+import { MAX_WEBHOOKS_PER_PROJECT, PAUSE_WEBHOOKS_LIMIT, RESUME_WEBHOOKS_LIMIT, ROTATE_WEBHOOKS_LIMIT, TEST_WEBHOOKS_LIMIT, type WebhookEvent } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 import type { AuthContext } from "../../types.js";
 
@@ -200,6 +200,47 @@ export async function sendTestWebhooks(project: ProjectDoc, input: { limit?: num
     }
   }
   return { queued: deliveryIds.length, skipped, webhookIds, deliveryIds };
+}
+
+export async function rotateWebhookSecrets(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, ROTATE_WEBHOOKS_LIMIT);
+  const selected = await Webhook.find({
+    projectId: project._id,
+    deletedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const webhookIds: string[] = [];
+  const secrets: { webhookId: string; url: string; secret: string; secretPrefix: string }[] = [];
+  let skipped = 0;
+  for (const webhook of selected) {
+    try {
+      const current = await Webhook.findOne({
+        projectId: project._id,
+        publicId: webhook.publicId,
+        deletedAt: null,
+      }) as WebhookDoc | null;
+      if (!current) {
+        skipped += 1;
+        continue;
+      }
+      const rotated = await rotateWebhookSecret(project, current.publicId, auth);
+      webhookIds.push(current.publicId);
+      secrets.push({
+        webhookId: current.publicId,
+        url: rotated.webhook.url,
+        secret: rotated.secret,
+        secretPrefix: rotated.webhook.secretPrefix,
+      });
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 400 || error.status === 404 || error.status === 409 || error.status === 429)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { rotated: secrets.length, skipped, webhookIds, secrets };
 }
 
 export async function rotateWebhookSecret(project: ProjectDoc, webhookId: string, auth: AuthContext) {
