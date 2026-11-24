@@ -211,6 +211,8 @@ export class TaskFlow {
     update: async (scheduleId: string, input: Record<string, unknown>) =>
       this.request<ScheduleResource>("PATCH", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}`), { body: input }),
     run: async (scheduleId: string) => this.request<Job>("POST", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}/run`)),
+    runSchedules: async (input: { limit?: number } = {}) =>
+      this.request<{ queued: number; skipped: number; scheduleIds: string[]; jobIds: string[] }>("POST", await this.projectPath("/schedules/run"), { body: input }),
     pause: async (scheduleId: string) => this.request<ScheduleResource>("POST", await this.projectPath(`/schedules/${encodeURIComponent(scheduleId)}/pause`)),
     pauseSchedules: async (input: { limit?: number } = {}) =>
       this.request<{ paused: number; scheduleIds: string[] }>("POST", await this.projectPath("/schedules/pause"), { body: input }),

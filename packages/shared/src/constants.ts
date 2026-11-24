@@ -32,6 +32,7 @@ export const MOVE_QUEUED_LIMIT = 50;
 export const RESCHEDULE_QUEUED_LIMIT = 50;
 export const PAUSE_SCHEDULES_LIMIT = 50;
 export const RESUME_SCHEDULES_LIMIT = 50;
+export const RUN_SCHEDULES_LIMIT = 50;
 export const PAUSE_WORKFLOWS_LIMIT = 50;
 export const RESUME_WORKFLOWS_LIMIT = 50;
 export const CANCEL_WORKFLOW_RUNS_LIMIT = 50;

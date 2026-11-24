@@ -57,6 +57,19 @@ export function SchedulesPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not run the schedule"),
   });
+  const runSchedules = useMutation({
+    mutationFn: () => api<{ queued: number; skipped: number; scheduleIds: string[]; jobIds: string[] }>(`/projects/${projectId}/schedules/run`, {
+      method: "POST",
+      body: JSON.stringify({ limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.queued;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Queued 1 job" : `Queued ${count} jobs`);
+      void client.invalidateQueries({ queryKey: ["schedules", projectId] });
+      void client.invalidateQueries({ queryKey: ["jobs", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not run schedules"),
+  });
   const remove = useMutation({
     mutationFn: (scheduleId: string) => api(`/projects/${projectId}/schedules/${scheduleId}`, { method: "DELETE" }),
     onSuccess: () => {
@@ -75,12 +88,13 @@ export function SchedulesPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Schedules</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            One scheduler process turns a cron pattern into a normal job. Edit keeps the same schedule. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time where it is. Pause schedules stops the oldest running schedules, up to 20, and keeps each schedule id. The next run time stays. Resume schedules starts the oldest paused schedules again, up to 20, and keeps each schedule id. A next run that is already past moves forward. A schedule that is already running is left alone. Missed ticks older than a minute are skipped.
+            One scheduler process turns a cron pattern into a normal job. Edit keeps the same schedule. A new cron or time zone recalculates the next run, and the pause state stays as it is. Run now queues one job and leaves the next cron time where it is. Run schedules does that for the oldest schedules, up to 20, and keeps each schedule id. A paused schedule can still run. A second call queues another job. Pause schedules stops the oldest running schedules, up to 20, and keeps each schedule id. The next run time stays. Resume schedules starts the oldest paused schedules again, up to 20, and keeps each schedule id. A next run that is already past moves forward. A schedule that is already running is left alone. Missed ticks older than a minute are skipped.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" loading={pauseSchedules.isPending} onClick={() => pauseSchedules.mutate()}>Pause schedules</Button>
           <Button variant="secondary" loading={resumeSchedules.isPending} onClick={() => resumeSchedules.mutate()}>Resume schedules</Button>
+          <Button variant="secondary" loading={runSchedules.isPending} onClick={() => runSchedules.mutate()}>Run schedules</Button>
           <Button onClick={() => setOpen(true)}>New schedule</Button>
         </div>
       </div>
