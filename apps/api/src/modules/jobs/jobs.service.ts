@@ -23,6 +23,7 @@ import {
   isHandlerName,
   CANCEL_QUEUED_LIMIT,
   PROMOTE_DELAYED_LIMIT,
+  REPLAY_JOBS_LIMIT,
   QUEUED_PRIORITY_LIMIT,
   MOVE_QUEUED_LIMIT,
   RESCHEDULE_QUEUED_LIMIT,
@@ -358,6 +359,61 @@ export async function replayJob(project: ProjectDoc, jobId: string, auth: AuthCo
     metadata: { sourceJobId: source.publicId },
   });
   return result.job;
+}
+
+const FINISHED_JOB_STATUSES = ["completed", "failed", "cancelled"] as const;
+
+export async function replayFinishedJobs(
+  project: ProjectDoc,
+  input: { queue?: string; limit?: number },
+  auth: AuthContext,
+) {
+  if (input.queue) {
+    const queue = await QueueConfig.findOne({ projectId: project._id, name: input.queue, deletedAt: null });
+    if (!queue) throw new AppError(404, "QUEUE_NOT_FOUND", "Queue not found");
+  }
+  const limit = Math.min(input.limit ?? 20, REPLAY_JOBS_LIMIT);
+  const selected = await JobRecord.find({
+    projectId: project._id,
+    status: { $in: FINISHED_JOB_STATUSES },
+    ...(input.queue ? { queueName: input.queue } : {}),
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  if (selected.length > 0) {
+    try {
+      await assertJobAllowance(project, selected.length);
+    } catch (error) {
+      if (error instanceof PlanLimitError) throw new AppError(402, "PLAN_LIMIT", error.message);
+      throw error;
+    }
+  }
+  const jobIds: string[] = [];
+  const sourceJobIds: string[] = [];
+  let skipped = 0;
+  for (const record of selected) {
+    try {
+      const current = await JobRecord.findOne({
+        projectId: project._id,
+        publicId: record.publicId,
+        status: { $in: FINISHED_JOB_STATUSES },
+      });
+      if (!current) {
+        skipped += 1;
+        continue;
+      }
+      const copy = await replayJob(project, current.publicId, auth);
+      jobIds.push(copy.publicId);
+      sourceJobIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 400 || error.status === 404 || error.status === 409 || error.status === 429)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { replayed: jobIds.length, skipped, jobIds, sourceJobIds };
 }
 
 export async function promoteJob(project: ProjectDoc, jobId: string, auth: AuthContext) {

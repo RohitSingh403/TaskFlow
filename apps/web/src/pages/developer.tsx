@@ -319,6 +319,7 @@ export function DocsPage() {
     ["GET", "/projects/:id/jobs/:jobId", "Read status, result, and error"],
     ["POST", "/projects/:id/jobs/:jobId/retry", "Retry a failed job"],
     ["POST", "/projects/:id/jobs/:jobId/replay", "Queue a new copy of a job"],
+    ["POST", "/projects/:id/jobs/replay", "Copy up to 50 finished jobs into new waiting jobs"],
     ["POST", "/projects/:id/jobs/:jobId/promote", "Run a delayed job now"],
     ["POST", "/projects/:id/jobs/promote-delayed", "Run up to 50 delayed jobs now and keep their ids"],
     ["POST", "/projects/:id/jobs/:jobId/reschedule", "Give a waiting or delayed job a new delay"],
