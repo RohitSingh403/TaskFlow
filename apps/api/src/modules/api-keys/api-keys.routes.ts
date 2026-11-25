@@ -1,4 +1,4 @@
-import { createApiKeySchema, extendApiKeysSchema, revokeApiKeysSchema, updateApiKeySchema } from "@taskflow/shared";
+import { createApiKeySchema, extendApiKeysSchema, revokeApiKeysSchema, setApiKeyScopesSchema, updateApiKeySchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toApiKey } from "../../dto.js";
 import { AppError } from "../../errors.js";
@@ -7,7 +7,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, requireScope, validateBody } from "../../middleware/common.js";
 import { loadProject, requireOwner } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { createApiKey, extendApiKeys, listApiKeys, revokeApiKey, revokeApiKeys, updateApiKey } from "./api-keys.service.js";
+import { createApiKey, extendApiKeys, listApiKeys, revokeApiKey, revokeApiKeys, setApiKeyScopes, updateApiKey } from "./api-keys.service.js";
 
 export const apiKeyRouter = Router({ mergeParams: true });
 
@@ -65,6 +65,17 @@ apiKeyRouter.post(
   asyncHandler(async (req, res) => {
     if (req.auth?.type !== "user") throw new AppError(403, "FORBIDDEN", "API keys are managed from a user session");
     sendOk(res, await extendApiKeys(req.project!, req.body, req.auth.userPublicId));
+  }),
+);
+
+apiKeyRouter.post(
+  "/scopes",
+  writeLimiter,
+  requireScope("*"),
+  validateBody(setApiKeyScopesSchema),
+  asyncHandler(async (req, res) => {
+    if (req.auth?.type !== "user") throw new AppError(403, "FORBIDDEN", "API keys are managed from a user session");
+    sendOk(res, await setApiKeyScopes(req.project!, req.body, req.auth.userPublicId));
   }),
 );
 

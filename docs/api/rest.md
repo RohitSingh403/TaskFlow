@@ -32,6 +32,8 @@ API key scopes: `jobs:read`, `jobs:write`, `queues:read`, `queues:write`, `worke
 
 `POST /projects/:projectId/api-keys/extend` with `{ "expiresInDays": 30, "limit": 20 }` moves the oldest keys that already have an expiry, up to 50. Each key keeps its id, prefix, hash, name, and scopes. `expiresAt` is measured from the call. An expired key is included and becomes active again. A key that never expires is left alone. A revoked key is left alone. A second call extends those keys again. `expiresInDays` outside 1 to 365, or a limit outside 1 to 50, returns `400` `VALIDATION_ERROR`. An API key cannot call it. A member receives `403` `OWNER_REQUIRED`.
 
+`POST /projects/:projectId/api-keys/scopes` with `{ "scopes": ["jobs:read"], "limit": 20 }` replaces the scopes on the oldest keys that are still active or expired, up to 50. Each key keeps its id, prefix, hash, name, and expiry. Duplicate entries are stored once, in the platform's scope order. A key that already has that list is left alone. A revoked key is left alone. A second call returns `updated: 0`. An empty list or an unknown scope returns `400` `VALIDATION_ERROR`. A limit outside 1 to 50 returns the same code. An API key cannot call it. A member receives `403` `OWNER_REQUIRED`.
+
 ## Projects
 
 `PATCH /projects/:projectId` accepts `jobRetentionDays`, from 1 to 365. The default is 30. The scheduler deletes finished, failed, and cancelled jobs, and a finished workflow run, once every record in that set is older than the window. Waiting and active jobs stay. A repeated idempotency key can create a new job after the original record is gone. Only the owner can change the setting.

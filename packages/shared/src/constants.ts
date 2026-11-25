@@ -55,6 +55,7 @@ export const ROTATE_WEBHOOKS_LIMIT = 50;
 export const DELETE_WEBHOOKS_LIMIT = 50;
 export const REVOKE_API_KEYS_LIMIT = 50;
 export const EXTEND_API_KEYS_LIMIT = 50;
+export const SET_API_KEY_SCOPES_LIMIT = 50;
 export const REPLAY_JOBS_LIMIT = 50;
 export const REMOVE_JOBS_LIMIT = 50;
 export const BILLING_PLANS = ["developer", "scale"] as const;
