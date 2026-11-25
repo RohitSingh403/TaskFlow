@@ -314,6 +314,11 @@ export const deleteQueuesSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const setQueueConcurrencySchema = z.object({
+  concurrency: z.number().int().min(1).max(100),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const removeMembersSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
