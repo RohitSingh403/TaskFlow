@@ -1,4 +1,4 @@
-import { deleteWebhooksSchema, pauseWebhooksSchema, redeliverFailedWebhooksSchema, resumeWebhooksSchema, rotateWebhooksSchema, testWebhooksSchema, updateWebhookSchema, webhookSchema } from "@taskflow/shared";
+import { deleteWebhooksSchema, pauseWebhooksSchema, redeliverFailedWebhooksSchema, resumeWebhooksSchema, rotateWebhooksSchema, setWebhookEventsSchema, testWebhooksSchema, updateWebhookSchema, webhookSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toWebhook, toWebhookDelivery } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -20,6 +20,7 @@ import {
   rotateWebhookSecrets,
   sendTestWebhook,
   sendTestWebhooks,
+  setWebhookEvents,
   updateWebhook,
 } from "./webhooks.service.js";
 
@@ -97,6 +98,16 @@ webhookRouter.post(
   validateBody(deleteWebhooksSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, await deleteWebhooks(req.project!, req.body, req.auth!));
+  }),
+);
+
+webhookRouter.post(
+  "/events",
+  writeLimiter,
+  requireScope("jobs:write"),
+  validateBody(setWebhookEventsSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await setWebhookEvents(req.project!, req.body, req.auth!));
   }),
 );
 

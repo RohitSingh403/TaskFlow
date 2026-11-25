@@ -22,6 +22,7 @@ export function WebhooksPage() {
   const [secret, setSecret] = useState("");
   const [rotatedSecrets, setRotatedSecrets] = useState<{ webhookId: string; url: string; secret: string; secretPrefix: string }[]>([]);
   const [rotateId, setRotateId] = useState<string | null>(null);
+  const [eventsOpen, setEventsOpen] = useState(false);
   const listed = useQuery({
     queryKey: ["webhooks", projectId],
     enabled: Boolean(projectId),
@@ -152,7 +153,7 @@ export function WebhooksPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Webhooks</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Edit changes the URL or events and keeps the endpoint id and signing secret. Pause webhooks stops the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A webhook that is already paused is left alone. Resume webhooks starts the oldest paused endpoints again, up to 20, and keeps each endpoint id and signing secret. A webhook that is already enabled is left alone. Send test queues a webhook.test delivery without waiting for a job. A paused endpoint refuses that test. Send tests does that for the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A second call queues another test. An enabled endpoint can accept it. Rotate replaces the signing secret. Rotate secrets does that for the oldest endpoints, up to 20, including a paused endpoint, and keeps each endpoint id. The new secrets are shown once. A second call replaces them again. Deliveries that have not been sent use the current URL and secret. Send again queues that same delivery id. Send failed again queues the oldest failed deliveries, up to 20. Each delivery keeps its id. Receivers should ignore a delivery id they have already handled. Delete webhooks removes the oldest endpoints, up to 20, including a paused endpoint, and keeps each endpoint id. A webhook that is already deleted is left alone. A second call deletes none of those endpoints.
+            TaskFlow POSTs a signed JSON body when a selected event happens. Delivery is at least once. Edit changes the URL or events and keeps the endpoint id and signing secret. Set events replaces the events on the oldest endpoints, up to 20, including a paused endpoint, and keeps each endpoint id, URL, and signing secret. Duplicate entries are stored once, in the platform's event order. An endpoint that already has that list is left alone, and so is a deleted endpoint. A second call updates none of those endpoints. Pause webhooks stops the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A webhook that is already paused is left alone. Resume webhooks starts the oldest paused endpoints again, up to 20, and keeps each endpoint id and signing secret. A webhook that is already enabled is left alone. Send test queues a webhook.test delivery without waiting for a job. A paused endpoint refuses that test. Send tests does that for the oldest enabled endpoints, up to 20, and keeps each endpoint id and signing secret. A second call queues another test. An enabled endpoint can accept it. Rotate replaces the signing secret. Rotate secrets does that for the oldest endpoints, up to 20, including a paused endpoint, and keeps each endpoint id. The new secrets are shown once. A second call replaces them again. Deliveries that have not been sent use the current URL and secret. Send again queues that same delivery id. Send failed again queues the oldest failed deliveries, up to 20. Each delivery keeps its id. Receivers should ignore a delivery id they have already handled. Delete webhooks removes the oldest endpoints, up to 20, including a paused endpoint, and keeps each endpoint id. A webhook that is already deleted is left alone. A second call deletes none of those endpoints.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -160,6 +161,7 @@ export function WebhooksPage() {
           <Button variant="secondary" loading={resumeWebhooks.isPending} onClick={() => resumeWebhooks.mutate()}>Resume webhooks</Button>
           <Button variant="secondary" loading={testWebhooks.isPending} onClick={() => testWebhooks.mutate()}>Send tests</Button>
           <Button variant="secondary" loading={rotateWebhooks.isPending} onClick={() => rotateWebhooks.mutate()}>Rotate secrets</Button>
+          <Button variant="secondary" onClick={() => setEventsOpen(true)}>Set events</Button>
           <Button variant="danger" loading={deleteWebhooks.isPending} onClick={() => deleteWebhooks.mutate()}>Delete webhooks</Button>
           <Button onClick={() => setOpen(true)}>New webhook</Button>
         </div>
@@ -250,6 +252,7 @@ export function WebhooksPage() {
         )}
       </Card>
       <EditWebhook hook={editing} projectId={projectId} onClose={() => setEditing(null)} />
+      <SetWebhookEvents open={eventsOpen} projectId={projectId} onClose={() => setEventsOpen(false)} />
       <CreateWebhook
         open={open}
         projectId={projectId}
@@ -282,6 +285,68 @@ export function WebhooksPage() {
         <div className="mt-4 flex justify-end"><Button onClick={() => setRotatedSecrets([])}>Done</Button></div>
       </Dialog>
     </div>
+  );
+}
+
+function SetWebhookEvents({ open, projectId, onClose }: { open: boolean; projectId: string; onClose: () => void }) {
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [events, setEvents] = useState<WebhookEventName[]>(["job.completed"]);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!open) return;
+    setEvents(["job.completed"]);
+    setError("");
+  }, [open]);
+  const save = useMutation({
+    mutationFn: () => api<{ updated: number; skipped: number; webhookIds: string[] }>(`/projects/${projectId}/webhooks/events`, {
+      method: "POST",
+      body: JSON.stringify({ events: eventOptions.map((option) => option.id).filter((event) => events.includes(event)), limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.updated;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Updated 1 webhook" : `Updated ${count} webhooks`);
+      onClose();
+      void client.invalidateQueries({ queryKey: ["webhooks", projectId] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : "Could not update the events"),
+  });
+  return (
+    <Dialog open={open} title="Set events" description="The oldest endpoints, including a paused one, take this list. The endpoint id, URL, and signing secret stay. An endpoint that already has this list is left alone." onClose={onClose}>
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (events.length === 0) {
+            setError("Choose at least one event");
+            return;
+          }
+          save.mutate();
+        }}
+      >
+        <fieldset className="space-y-2">
+          <legend className="text-[12px] font-medium text-muted">Events</legend>
+          {eventOptions.map((option) => (
+            <label key={option.id} className="flex items-center gap-2 text-[13px]">
+              <input
+                type="checkbox"
+                name={option.id}
+                checked={events.includes(option.id)}
+                onChange={(event) => {
+                  setEvents((current) => event.target.checked ? [...current, option.id] : current.filter((item) => item !== option.id));
+                }}
+              />
+              {option.label}
+            </label>
+          ))}
+        </fieldset>
+        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={save.isPending} disabled={events.length === 0}>Save</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 

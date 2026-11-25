@@ -303,6 +303,8 @@ export class TaskFlow {
     delete: async (webhookId: string) => this.request<{ deleted: boolean }>("DELETE", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}`)),
     deleteWebhooks: async (input: { limit?: number } = {}) =>
       this.request<{ deleted: number; skipped: number; webhookIds: string[] }>("POST", await this.projectPath("/webhooks/delete"), { body: input }),
+    setEvents: async (input: { events: string[]; limit?: number }) =>
+      this.request<{ updated: number; skipped: number; webhookIds: string[] }>("POST", await this.projectPath("/webhooks/events"), { body: input }),
     deliveries: async (webhookId: string) => this.request<WebhookDelivery[]>("GET", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/deliveries`)),
     redeliver: async (webhookId: string, deliveryId: string) =>
       this.request<WebhookDelivery>("POST", await this.projectPath(`/webhooks/${encodeURIComponent(webhookId)}/deliveries/${encodeURIComponent(deliveryId)}/redeliver`)),
