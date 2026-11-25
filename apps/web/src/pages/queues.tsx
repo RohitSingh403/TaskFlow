@@ -13,6 +13,7 @@ export function QueuesPage() {
   const toast = useUi((state) => state.toast);
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [concurrency, setConcurrency] = useState("8");
   const [removeId, setRemoveId] = useState<string | null>(null);
   const queues = useQuery({
     queryKey: ["queues", projectId],
@@ -47,6 +48,20 @@ export function QueuesPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not resume queues"),
   });
+  const concurrencyValue = Number(concurrency);
+  const concurrencyReady = Number.isInteger(concurrencyValue) && concurrencyValue >= 1 && concurrencyValue <= 100;
+  const setConcurrencyBatch = useMutation({
+    mutationFn: () => api<{ updated: number; skipped: number; queueIds: string[] }>(`/projects/${projectId}/queues/concurrency`, {
+      method: "POST",
+      body: JSON.stringify({ concurrency: concurrencyValue, limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.updated;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Updated 1 queue" : `Updated ${count} queues`);
+      void client.invalidateQueries({ queryKey: ["queues", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not set concurrency"),
+  });
   const deleteQueues = useMutation({
     mutationFn: () => api<{ deleted: number; skipped: number; queueIds: string[] }>(`/projects/${projectId}/queues/delete`, {
       method: "POST",
@@ -74,11 +89,20 @@ export function QueuesPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Queues</h1>
-          <p className="max-w-2xl text-[13px] text-muted">Counts are read from BullMQ. Pause queues stops the oldest running queues, up to 20, and keeps each queue id. Resume queues starts the oldest paused queues again, up to 20, and keeps each queue id. Jobs already waiting stay. A queue that is already running is left alone. Delete removes an empty queue. Waiting, delayed, active, and paused jobs keep it, and so does a schedule or workflow that still uses it. Delete queues removes the oldest queues, up to 20, including a paused queue, and keeps each queue id. A queue that still has waiting, delayed, active, or paused jobs is left alone, and so is a queue a schedule or workflow still uses. A queue that is already deleted is left alone. A second call deletes none of those queues.</p>
+          <p className="max-w-2xl text-[13px] text-muted">Counts are read from BullMQ. Pause queues stops the oldest running queues, up to 20, and keeps each queue id. Resume queues starts the oldest paused queues again, up to 20, and keeps each queue id. Jobs already waiting stay. A queue that is already running is left alone. Set concurrency replaces the concurrency on the oldest queues, up to 20, including a paused queue and a queue that still has jobs, and keeps each queue id, name, and pause state. A queue that already has that concurrency is left alone, and so is a deleted queue. A second call updates none of those queues. Workers pick up the new concurrency on the next sync. Delete removes an empty queue. Waiting, delayed, active, and paused jobs keep it, and so does a schedule or workflow that still uses it. Delete queues removes the oldest queues, up to 20, including a paused queue, and keeps each queue id. A queue that still has waiting, delayed, active, or paused jobs is left alone, and so is a queue a schedule or workflow still uses. A queue that is already deleted is left alone. A second call deletes none of those queues.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" loading={pauseQueues.isPending} onClick={() => pauseQueues.mutate()}>Pause queues</Button>
           <Button variant="secondary" loading={resumeQueues.isPending} onClick={() => resumeQueues.mutate()}>Resume queues</Button>
+          <div className="w-24">
+            <TextInput
+              aria-label="Set concurrency to"
+              inputMode="numeric"
+              value={concurrency}
+              onChange={(event) => setConcurrency(event.target.value)}
+            />
+          </div>
+          <Button variant="secondary" loading={setConcurrencyBatch.isPending} disabled={!concurrencyReady} onClick={() => setConcurrencyBatch.mutate()}>Set concurrency</Button>
           <Button variant="danger" loading={deleteQueues.isPending} onClick={() => deleteQueues.mutate()}>Delete queues</Button>
           <Button onClick={() => setOpen(true)}>New queue</Button>
         </div>

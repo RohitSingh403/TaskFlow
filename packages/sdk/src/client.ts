@@ -208,6 +208,8 @@ export class TaskFlow {
     delete: async (queueId: string) => this.request<{ id: string; deleted: boolean }>("DELETE", await this.projectPath(`/queues/${encodeURIComponent(queueId)}`)),
     deleteQueues: async (input: { limit?: number } = {}) =>
       this.request<{ deleted: number; skipped: number; queueIds: string[] }>("POST", await this.projectPath("/queues/delete"), { body: input }),
+    setConcurrency: async (input: { concurrency: number; limit?: number }) =>
+      this.request<{ updated: number; skipped: number; queueIds: string[] }>("POST", await this.projectPath("/queues/concurrency"), { body: input }),
   };
 
   readonly schedules = {

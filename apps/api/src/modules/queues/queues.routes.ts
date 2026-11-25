@@ -1,4 +1,4 @@
-import { deleteQueuesSchema, pauseQueuesSchema, queueSchema, resumeQueuesSchema, updateQueueSchema } from "@taskflow/shared";
+import { deleteQueuesSchema, pauseQueuesSchema, queueSchema, resumeQueuesSchema, setQueueConcurrencySchema, updateQueueSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toQueue } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -6,7 +6,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, requireScope, validateBody } from "../../middleware/common.js";
 import { loadProject } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { createQueue, deleteQueue, deleteQueues, findQueue, listQueues, pauseQueues, queueStats, resumeQueues, setQueuePaused, updateQueue } from "./queues.service.js";
+import { createQueue, deleteQueue, deleteQueues, findQueue, listQueues, pauseQueues, queueStats, resumeQueues, setQueueConcurrency, setQueuePaused, updateQueue } from "./queues.service.js";
 
 export const queueRouter = Router({ mergeParams: true });
 
@@ -62,6 +62,16 @@ queueRouter.post(
   validateBody(deleteQueuesSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, await deleteQueues(req.project!, req.body, req.auth!.userPublicId));
+  }),
+);
+
+queueRouter.post(
+  "/concurrency",
+  writeLimiter,
+  requireScope("queues:write"),
+  validateBody(setQueueConcurrencySchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await setQueueConcurrency(req.project!, req.body, req.auth!.userPublicId));
   }),
 );
 
