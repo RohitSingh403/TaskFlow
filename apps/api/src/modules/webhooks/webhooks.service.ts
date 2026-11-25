@@ -13,7 +13,7 @@ import {
   type WebhookDeliveryDoc,
   type WebhookDoc,
 } from "@taskflow/server";
-import { DELETE_WEBHOOKS_LIMIT, MAX_WEBHOOKS_PER_PROJECT, PAUSE_WEBHOOKS_LIMIT, RESUME_WEBHOOKS_LIMIT, ROTATE_WEBHOOKS_LIMIT, TEST_WEBHOOKS_LIMIT, type WebhookEvent } from "@taskflow/shared";
+import { DELETE_WEBHOOKS_LIMIT, MAX_WEBHOOKS_PER_PROJECT, PAUSE_WEBHOOKS_LIMIT, RESUME_WEBHOOKS_LIMIT, ROTATE_WEBHOOKS_LIMIT, SET_WEBHOOK_EVENTS_LIMIT, TEST_WEBHOOKS_LIMIT, WEBHOOK_EVENTS, type WebhookEvent } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 import type { AuthContext } from "../../types.js";
 
@@ -334,6 +334,54 @@ export async function deleteWebhooks(project: ProjectDoc, input: { limit?: numbe
     }
   }
   return { deleted: webhookIds.length, skipped, webhookIds };
+}
+
+function orderedEvents(events: readonly string[]) {
+  const selected = new Set(events);
+  return WEBHOOK_EVENTS.filter((event) => selected.has(event));
+}
+
+function sameEvents(current: readonly string[], next: readonly string[]) {
+  return current.length === next.length && current.every((event, index) => event === next[index]);
+}
+
+export async function setWebhookEvents(project: ProjectDoc, input: { events: WebhookEvent[]; limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, SET_WEBHOOK_EVENTS_LIMIT);
+  const next = orderedEvents(input.events);
+  const selected = await Webhook.find({
+    projectId: project._id,
+    deletedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const webhookIds: string[] = [];
+  let skipped = 0;
+  for (const webhook of selected) {
+    try {
+      const current = await Webhook.findOne({
+        projectId: project._id,
+        publicId: webhook.publicId,
+        deletedAt: null,
+      }) as WebhookDoc | null;
+      if (!current) {
+        skipped += 1;
+        continue;
+      }
+      if (sameEvents(current.events, next)) {
+        skipped += 1;
+        continue;
+      }
+      await updateWebhook(project, current.publicId, { events: next }, auth);
+      webhookIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { updated: webhookIds.length, skipped, webhookIds };
 }
 
 export async function redeliverWebhook(project: ProjectDoc, webhookId: string, deliveryId: string, auth: AuthContext) {
