@@ -188,6 +188,8 @@ The scheduler leader evaluates enabled rules. A true rule opens one alert, then 
 
 `POST /projects/:projectId/alerts/rules/delete` with `{ "limit": 20 }` deletes the oldest rules, up to 50. Each rule keeps its id, name, type, queue, threshold, and silence. The rule is disabled and leaves the list. A paused rule is included, and so is a silenced rule. An open alert stays. A rule that is already deleted is left alone. A second call returns `deleted: 0`. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`. A reader key returns `403`.
 
+`POST /projects/:projectId/alerts/rules/cooldown` with `{ "cooldownMs": 1800000, "limit": 20 }` replaces the cooldown on the oldest rules, up to 50. Each rule keeps its id, name, type, queue, threshold, enabled flag, and silence. A paused rule is included, and so is a silenced rule. An offline-worker rule is included. A rule that already has that cooldown is left alone. A deleted rule is left alone. A second call returns `updated: 0`. `cooldownMs` outside 1 minute to 24 hours, or a limit outside 1 to 50, returns `400` `VALIDATION_ERROR`. A reader key returns `403`. The caller needs `jobs:write`.
+
 ## Webhooks
 
 `POST /projects/:projectId/webhooks`

@@ -9,7 +9,7 @@ import {
   type AlertRuleDoc,
   type ProjectDoc,
 } from "@taskflow/server";
-import { DELETE_ALERT_RULES_LIMIT, MAX_ALERT_RULES_PER_PROJECT, PAUSE_ALERT_RULES_LIMIT, RESUME_ALERT_RULES_LIMIT, SILENCE_ALERT_RULES_LIMIT, UNSILENCE_ALERT_RULES_LIMIT, type AlertType } from "@taskflow/shared";
+import { DELETE_ALERT_RULES_LIMIT, MAX_ALERT_RULES_PER_PROJECT, PAUSE_ALERT_RULES_LIMIT, RESUME_ALERT_RULES_LIMIT, SET_ALERT_COOLDOWN_LIMIT, SILENCE_ALERT_RULES_LIMIT, UNSILENCE_ALERT_RULES_LIMIT, type AlertType } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 import type { AuthContext } from "../../types.js";
 
@@ -175,6 +175,44 @@ export async function deleteAlertRules(project: ProjectDoc, input: { limit?: num
     }
   }
   return { deleted: ruleIds.length, skipped, ruleIds };
+}
+
+export async function setAlertCooldowns(project: ProjectDoc, input: { cooldownMs: number; limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, SET_ALERT_COOLDOWN_LIMIT);
+  const selected = await AlertRule.find({
+    projectId: project._id,
+    deletedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const ruleIds: string[] = [];
+  let skipped = 0;
+  for (const rule of selected) {
+    try {
+      const current = await AlertRule.findOne({
+        projectId: project._id,
+        publicId: rule.publicId,
+        deletedAt: null,
+      }) as AlertRuleDoc | null;
+      if (!current) {
+        skipped += 1;
+        continue;
+      }
+      if (current.cooldownMs === input.cooldownMs) {
+        skipped += 1;
+        continue;
+      }
+      await updateAlertRule(project, current.publicId, { cooldownMs: input.cooldownMs }, auth);
+      ruleIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { updated: ruleIds.length, skipped, ruleIds };
 }
 
 export async function listAlerts(project: ProjectDoc, query: { status?: string; limit: number }) {

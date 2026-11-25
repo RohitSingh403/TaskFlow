@@ -27,6 +27,7 @@ export function AlertsPage() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<AlertRule | null>(null);
   const [durationMs, setDurationMs] = useState(silenceChoices[0]?.durationMs ?? 60 * 60 * 1000);
+  const [cooldownMinutes, setCooldownMinutes] = useState("30");
   const rules = useQuery({
     queryKey: ["alert-rules", projectId],
     enabled: Boolean(projectId),
@@ -121,6 +122,20 @@ export function AlertsPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not resume rules"),
   });
+  const cooldownValue = Number(cooldownMinutes);
+  const cooldownReady = Number.isInteger(cooldownValue) && cooldownValue >= 1 && cooldownValue <= 24 * 60;
+  const setCooldown = useMutation({
+    mutationFn: () => api<{ updated: number; skipped: number; ruleIds: string[] }>(`/projects/${projectId}/alerts/rules/cooldown`, {
+      method: "POST",
+      body: JSON.stringify({ cooldownMs: cooldownValue * 60_000, limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.updated;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Updated 1 rule" : `Updated ${count} rules`);
+      void client.invalidateQueries({ queryKey: ["alert-rules", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not set the cooldown"),
+  });
   const deleteRules = useMutation({
     mutationFn: () => api<{ deleted: number; skipped: number; ruleIds: string[] }>(`/projects/${projectId}/alerts/rules/delete`, {
       method: "POST",
@@ -143,7 +158,7 @@ export function AlertsPage() {
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Alerts</h1>
           <p className="max-w-2xl text-[13px] text-muted">
-            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Silence skips a rule until the time you choose. Silence rules does that for the oldest rules that are still checking, up to 20, and keeps each rule id. Clear silences starts the oldest silenced rules checking again, up to 20, and keeps each rule id. A rule that is already checking is left alone. The rule stays enabled. Pause rules stops the oldest enabled rules, up to 20, and keeps each rule id and its silence. A rule that is already paused is left alone. A paused rule is not checked. Resume rules starts the oldest paused rules checking again, up to 20, and keeps each rule id and its silence. A rule that is already enabled is left alone. A silence that is still in the future keeps that rule from opening an alert. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id. Delete rules removes the oldest rules, up to 20, including a paused rule and a silenced rule, and keeps each rule id. A rule that is already deleted is left alone. A second call deletes none of those rules.
+            The scheduler checks these rules. A rule that is still true waits out its cooldown before it opens another alert. Edit changes the name, threshold, or cooldown and keeps the rule id and its silence. Set cooldown replaces the cooldown on the oldest rules, up to 20, including a paused rule and a silenced rule, and keeps each rule id, name, threshold, and silence. A rule that already has that cooldown is left alone, and so is a deleted rule. A second call updates none of those rules. Silence skips a rule until the time you choose. Silence rules does that for the oldest rules that are still checking, up to 20, and keeps each rule id. Clear silences starts the oldest silenced rules checking again, up to 20, and keeps each rule id. A rule that is already checking is left alone. The rule stays enabled. Pause rules stops the oldest enabled rules, up to 20, and keeps each rule id and its silence. A rule that is already paused is left alone. A paused rule is not checked. Resume rules starts the oldest paused rules checking again, up to 20, and keeps each rule id and its silence. A rule that is already enabled is left alone. A silence that is still in the future keeps that rule from opening an alert. Resolve open marks the oldest open alerts resolved, up to 20. Each alert keeps its id. Delete rules removes the oldest rules, up to 20, including a paused rule and a silenced rule, and keeps each rule id. A rule that is already deleted is left alone. A second call deletes none of those rules.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -154,6 +169,15 @@ export function AlertsPage() {
           <Button variant="secondary" loading={clearSilences.isPending} onClick={() => clearSilences.mutate()}>Clear silences</Button>
           <Button variant="secondary" loading={pauseRules.isPending} onClick={() => pauseRules.mutate()}>Pause rules</Button>
           <Button variant="secondary" loading={resumeRules.isPending} onClick={() => resumeRules.mutate()}>Resume rules</Button>
+          <div className="w-24">
+            <TextInput
+              aria-label="Cooldown minutes"
+              inputMode="numeric"
+              value={cooldownMinutes}
+              onChange={(event) => setCooldownMinutes(event.target.value)}
+            />
+          </div>
+          <Button variant="secondary" loading={setCooldown.isPending} disabled={!cooldownReady} onClick={() => setCooldown.mutate()}>Set cooldown</Button>
           <Button variant="danger" loading={deleteRules.isPending} onClick={() => deleteRules.mutate()}>Delete rules</Button>
           <Button onClick={() => setOpen(true)}>New rule</Button>
         </div>
@@ -338,10 +362,11 @@ function EditRule({ rule, onClose }: { rule: AlertRule | null; onClose: () => vo
 }
 
 function describe(rule: AlertRule) {
-  if (rule.type === "queue.backlog") return `${rule.queue} waiting ≥ ${rule.threshold}`;
-  if (rule.type === "failure.rate") return `${rule.threshold}% failed${rule.queue ? ` on ${rule.queue}` : ""}`;
-  if (rule.type === "worker.offline") return "Assigned worker stops or goes stale";
-  return `Active longer than ${Math.round(rule.threshold / 1000)}s`;
+  const wait = `${Math.round(rule.cooldownMs / 60_000)}m cooldown`;
+  if (rule.type === "queue.backlog") return `${rule.queue} waiting ≥ ${rule.threshold} · ${wait}`;
+  if (rule.type === "failure.rate") return `${rule.threshold}% failed${rule.queue ? ` on ${rule.queue}` : ""} · ${wait}`;
+  if (rule.type === "worker.offline") return `Assigned worker stops or goes stale · ${wait}`;
+  return `Active longer than ${Math.round(rule.threshold / 1000)}s · ${wait}`;
 }
 
 function CreateRule({ onClose }: { onClose: () => void }) {
