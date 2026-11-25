@@ -16,6 +16,7 @@ export function ApiKeysPage() {
   const [editing, setEditing] = useState<ApiKey | null>(null);
   const [scoping, setScoping] = useState<ApiKey | null>(null);
   const [expiring, setExpiring] = useState<ApiKey | null>(null);
+  const [scopesOpen, setScopesOpen] = useState(false);
   const [secret, setSecret] = useState("");
   const [extendDays, setExtendDays] = useState("30");
   const keys = useQuery({
@@ -72,7 +73,7 @@ export function ApiKeysPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">API keys</h1>
-          <p className="max-w-2xl text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. Edit changes the label and keeps that secret. Scopes changes what the same secret can do. Expiry moves or clears the date and keeps that secret. A key can expire after 1 to 365 days, or stay valid until it is revoked. Extend keys moves the oldest keys that already expire, up to 20, including an expired key, and keeps each key id, prefix, and secret. The new date is measured from now. A key that never expires is left alone, and so is a revoked key. A second call extends those keys again. Revoke keys stops the oldest keys that are still active or expired, up to 20, and keeps each key id and prefix. A key that is already revoked is left alone. A second call revokes none of those keys.</p>
+          <p className="max-w-2xl text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. Edit changes the label and keeps that secret. Scopes changes what the same secret can do. Expiry moves or clears the date and keeps that secret. A key can expire after 1 to 365 days, or stay valid until it is revoked. Set scopes replaces the scopes on the oldest keys that are still active or expired, up to 20, and keeps each key id, prefix, and secret. A key that already has that list is left alone, and so is a revoked key. A second call updates none of those keys. Extend keys moves the oldest keys that already expire, up to 20, including an expired key, and keeps each key id, prefix, and secret. The new date is measured from now. A key that never expires is left alone, and so is a revoked key. A second call extends those keys again. Revoke keys stops the oldest keys that are still active or expired, up to 20, and keeps each key id and prefix. A key that is already revoked is left alone. A second call revokes none of those keys.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <div className="w-24">
@@ -84,6 +85,7 @@ export function ApiKeysPage() {
               onChange={(event) => setExtendDays(event.target.value)}
             />
           </div>
+          <Button variant="secondary" onClick={() => setScopesOpen(true)}>Set scopes</Button>
           <Button variant="secondary" loading={extendKeys.isPending} disabled={!extendDaysReady} onClick={() => extendKeys.mutate()}>Extend keys</Button>
           <Button variant="secondary" loading={revokeKeys.isPending} onClick={() => revokeKeys.mutate()}>Revoke keys</Button>
           <Button onClick={() => setOpen(true)}>Create key</Button>
@@ -133,6 +135,7 @@ export function ApiKeysPage() {
       </Card>
       <EditApiKey apiKey={editing} projectId={projectId} onClose={() => setEditing(null)} />
       <EditApiKeyScopes apiKey={scoping} projectId={projectId} onClose={() => setScoping(null)} />
+      <SetKeyScopes open={scopesOpen} projectId={projectId} onClose={() => setScopesOpen(false)} />
       <EditApiKeyExpiry apiKey={expiring} projectId={projectId} onClose={() => setExpiring(null)} />
       <Dialog open={open} title="Create API key" onClose={() => setOpen(false)}>
         <form
@@ -197,6 +200,70 @@ function EditApiKeyScopes({ apiKey, projectId, onClose }: { apiKey: ApiKey | nul
   });
   return (
     <Dialog open={Boolean(apiKey)} title="Edit scopes" description="The secret and the key id stay. Callers keep the same key, with these scopes." onClose={onClose}>
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (selected.length === 0) {
+            setError("Choose at least one scope");
+            return;
+          }
+          save.mutate();
+        }}
+      >
+        <fieldset>
+          <legend className="mb-2 text-[12px] text-muted">Scopes</legend>
+          <div className="grid grid-cols-2 gap-2 text-[13px]">
+            {SCOPES.map((scope) => (
+              <label key={scope} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  name={scope}
+                  checked={selected.includes(scope)}
+                  onChange={(event) => {
+                    setSelected((current) => event.target.checked ? [...current, scope] : current.filter((item) => item !== scope));
+                  }}
+                />
+                {scope}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {error ? <p className="text-[12px] text-danger">{error}</p> : null}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={save.isPending}>Save</Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+function SetKeyScopes({ open, projectId, onClose }: { open: boolean; projectId: string; onClose: () => void }) {
+  const toast = useUi((state) => state.toast);
+  const client = useQueryClient();
+  const [selected, setSelected] = useState<string[]>(["jobs:read"]);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!open) return;
+    setSelected(["jobs:read"]);
+    setError("");
+  }, [open]);
+  const save = useMutation({
+    mutationFn: () => api<{ updated: number; skipped: number; keyIds: string[] }>(`/projects/${projectId}/api-keys/scopes`, {
+      method: "POST",
+      body: JSON.stringify({ scopes: SCOPES.filter((scope) => selected.includes(scope)), limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.updated;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Updated 1 key" : `Updated ${count} keys`);
+      onClose();
+      void client.invalidateQueries({ queryKey: ["api-keys", projectId] });
+    },
+    onError: (reason) => setError(reason instanceof ApiError ? reason.message : "Could not update the scopes"),
+  });
+  return (
+    <Dialog open={open} title="Set scopes" description="The oldest keys that are still active or expired take this list. The secret and the key id stay. A key that already has this list is left alone." onClose={onClose}>
       <form
         className="space-y-3"
         onSubmit={(event) => {
@@ -406,6 +473,7 @@ export function DocsPage() {
     ["PATCH", "/projects/:id/api-keys/:keyId", "Change an API key's name, scopes, or expiry and keep its secret"],
     ["POST", "/projects/:id/api-keys/revoke", "Revoke up to 50 keys and keep their ids"],
     ["POST", "/projects/:id/api-keys/extend", "Extend up to 50 keys that already expire and keep their ids"],
+    ["POST", "/projects/:id/api-keys/scopes", "Replace the scopes on up to 50 keys and keep their ids"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
     ["POST", "/projects/:id/queues/pause", "Pause up to 50 running queues and keep their ids"],
     ["POST", "/projects/:id/queues/resume", "Resume up to 50 paused queues and keep their ids"],

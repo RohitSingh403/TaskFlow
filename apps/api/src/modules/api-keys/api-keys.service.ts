@@ -1,5 +1,5 @@
 import { ApiKey, AuditLog, createApiKeySecret, createId, type ProjectDoc } from "@taskflow/server";
-import { API_SCOPES, EXTEND_API_KEYS_LIMIT, REVOKE_API_KEYS_LIMIT, type ApiScope } from "@taskflow/shared";
+import { API_SCOPES, EXTEND_API_KEYS_LIMIT, REVOKE_API_KEYS_LIMIT, SET_API_KEY_SCOPES_LIMIT, type ApiScope } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 
 export async function listApiKeys(project: ProjectDoc) {
@@ -105,6 +105,50 @@ export async function extendApiKeys(project: ProjectDoc, input: { expiresInDays:
     }
   }
   return { extended: keyIds.length, skipped, keyIds };
+}
+
+function orderedScopes(scopes: readonly string[]) {
+  const selected = new Set(scopes);
+  return API_SCOPES.filter((scope) => selected.has(scope));
+}
+
+function sameScopes(current: readonly string[], next: readonly string[]) {
+  return current.length === next.length && current.every((scope, index) => scope === next[index]);
+}
+
+export async function setApiKeyScopes(project: ProjectDoc, input: { scopes: ApiScope[]; limit?: number }, actorId: string) {
+  const limit = Math.min(input.limit ?? 20, SET_API_KEY_SCOPES_LIMIT);
+  const next = orderedScopes(input.scopes);
+  const selected = await ApiKey.find({
+    projectId: project._id,
+    revokedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const keyIds: string[] = [];
+  let skipped = 0;
+  for (const key of selected) {
+    try {
+      const current = await ApiKey.findOne({ projectId: project._id, publicId: key.publicId, revokedAt: null });
+      if (!current) {
+        skipped += 1;
+        continue;
+      }
+      if (sameScopes(current.scopes, next)) {
+        skipped += 1;
+        continue;
+      }
+      await updateApiKey(project, current.publicId, { scopes: next }, actorId);
+      keyIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { updated: keyIds.length, skipped, keyIds };
 }
 
 export async function revokeApiKey(project: ProjectDoc, keyId: string, actorId: string) {

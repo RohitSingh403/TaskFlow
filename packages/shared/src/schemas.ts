@@ -127,6 +127,11 @@ export const extendApiKeysSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const setApiKeyScopesSchema = z.object({
+  scopes: z.array(z.enum(API_SCOPES)).min(1),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const retryFailedJobsSchema = z.object({
   queue: z.string().trim().regex(QUEUE_NAME_PATTERN).optional(),
   limit: z.number().int().min(1).max(50).default(20),
