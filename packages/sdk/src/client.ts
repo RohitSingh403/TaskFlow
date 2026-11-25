@@ -285,6 +285,8 @@ export class TaskFlow {
       delete: async (ruleId: string) => this.request<{ deleted: boolean }>("DELETE", await this.projectPath(`/alerts/rules/${encodeURIComponent(ruleId)}`)),
       deleteRules: async (input: { limit?: number } = {}) =>
         this.request<{ deleted: number; skipped: number; ruleIds: string[] }>("POST", await this.projectPath("/alerts/rules/delete"), { body: input }),
+      setCooldown: async (input: { cooldownMs: number; limit?: number }) =>
+        this.request<{ updated: number; skipped: number; ruleIds: string[] }>("POST", await this.projectPath("/alerts/rules/cooldown"), { body: input }),
     },
   };
 

@@ -1,4 +1,4 @@
-import { alertRuleSchema, deleteAlertRulesSchema, listAlertsQuerySchema, pauseAlertRulesSchema, resolveOpenAlertsSchema, resumeAlertRulesSchema, silenceAlertRulesSchema, silenceAlertSchema, unsilenceAlertRulesSchema, updateAlertRuleSchema } from "@taskflow/shared";
+import { alertRuleSchema, deleteAlertRulesSchema, listAlertsQuerySchema, pauseAlertRulesSchema, resolveOpenAlertsSchema, resumeAlertRulesSchema, setAlertCooldownSchema, silenceAlertRulesSchema, silenceAlertSchema, unsilenceAlertRulesSchema, updateAlertRuleSchema } from "@taskflow/shared";
 import { Router } from "express";
 import { toAlert, toAlertRule } from "../../dto.js";
 import { sendCreated, sendOk } from "../../http.js";
@@ -6,7 +6,7 @@ import { requireAuth } from "../../middleware/auth.js";
 import { asyncHandler, readQuery, requireScope, validateBody, validateQuery } from "../../middleware/common.js";
 import { loadProject } from "../../middleware/project.js";
 import { readLimiter, writeLimiter } from "../../rate-limit.js";
-import { createAlertRule, deleteAlertRule, deleteAlertRules, listAlertRules, listAlerts, pauseAlertRules, resolveAlert, resolveOpenAlerts, resumeAlertRules, silenceAlertRule, silenceAlertRules, unsilenceAlertRule, unsilenceAlertRules, updateAlertRule } from "./alerts.service.js";
+import { createAlertRule, deleteAlertRule, deleteAlertRules, listAlertRules, listAlerts, pauseAlertRules, resolveAlert, resolveOpenAlerts, resumeAlertRules, setAlertCooldowns, silenceAlertRule, silenceAlertRules, unsilenceAlertRule, unsilenceAlertRules, updateAlertRule } from "./alerts.service.js";
 
 export const alertRouter = Router({ mergeParams: true });
 
@@ -77,6 +77,16 @@ alertRouter.post(
   validateBody(deleteAlertRulesSchema),
   asyncHandler(async (req, res) => {
     sendOk(res, await deleteAlertRules(req.project!, req.body, req.auth!));
+  }),
+);
+
+alertRouter.post(
+  "/rules/cooldown",
+  writeLimiter,
+  requireScope("jobs:write"),
+  validateBody(setAlertCooldownSchema),
+  asyncHandler(async (req, res) => {
+    sendOk(res, await setAlertCooldowns(req.project!, req.body, req.auth!));
   }),
 );
 

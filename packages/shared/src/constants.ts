@@ -49,6 +49,7 @@ export const UNSILENCE_ALERT_RULES_LIMIT = 50;
 export const PAUSE_ALERT_RULES_LIMIT = 50;
 export const RESUME_ALERT_RULES_LIMIT = 50;
 export const DELETE_ALERT_RULES_LIMIT = 50;
+export const SET_ALERT_COOLDOWN_LIMIT = 50;
 export const PAUSE_WEBHOOKS_LIMIT = 50;
 export const RESUME_WEBHOOKS_LIMIT = 50;
 export const TEST_WEBHOOKS_LIMIT = 50;
