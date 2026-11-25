@@ -1,5 +1,5 @@
 import { ApiKey, AuditLog, createApiKeySecret, createId, type ProjectDoc } from "@taskflow/server";
-import { API_SCOPES, REVOKE_API_KEYS_LIMIT, type ApiScope } from "@taskflow/shared";
+import { API_SCOPES, EXTEND_API_KEYS_LIMIT, REVOKE_API_KEYS_LIMIT, type ApiScope } from "@taskflow/shared";
 import { AppError } from "../../errors.js";
 
 export async function listApiKeys(project: ProjectDoc) {
@@ -74,6 +74,37 @@ export async function updateApiKey(
     },
   });
   return key;
+}
+
+export async function extendApiKeys(project: ProjectDoc, input: { expiresInDays: number; limit?: number }, actorId: string) {
+  const limit = Math.min(input.limit ?? 20, EXTEND_API_KEYS_LIMIT);
+  const selected = await ApiKey.find({
+    projectId: project._id,
+    revokedAt: null,
+    expiresAt: { $exists: true, $ne: null },
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const keyIds: string[] = [];
+  let skipped = 0;
+  for (const key of selected) {
+    try {
+      const current = await ApiKey.findOne({ projectId: project._id, publicId: key.publicId, revokedAt: null });
+      if (!current?.expiresAt) {
+        skipped += 1;
+        continue;
+      }
+      await updateApiKey(project, current.publicId, { expiresInDays: input.expiresInDays }, actorId);
+      keyIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { extended: keyIds.length, skipped, keyIds };
 }
 
 export async function revokeApiKey(project: ProjectDoc, keyId: string, actorId: string) {

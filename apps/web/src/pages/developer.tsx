@@ -17,6 +17,7 @@ export function ApiKeysPage() {
   const [scoping, setScoping] = useState<ApiKey | null>(null);
   const [expiring, setExpiring] = useState<ApiKey | null>(null);
   const [secret, setSecret] = useState("");
+  const [extendDays, setExtendDays] = useState("30");
   const keys = useQuery({
     queryKey: ["api-keys", projectId],
     enabled: Boolean(projectId),
@@ -52,15 +53,38 @@ export function ApiKeysPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not revoke keys"),
   });
+  const extendDaysReady = Number.isInteger(Number(extendDays)) && Number(extendDays) >= 1 && Number(extendDays) <= 365;
+  const extendKeys = useMutation({
+    mutationFn: () => api<{ extended: number; skipped: number; keyIds: string[] }>(`/projects/${projectId}/api-keys/extend`, {
+      method: "POST",
+      body: JSON.stringify({ expiresInDays: Number(extendDays), limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.extended;
+      toast(count === 0 ? "warning" : "success", count === 1 ? "Extended 1 key" : `Extended ${count} keys`);
+      void client.invalidateQueries({ queryKey: ["api-keys", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not extend keys"),
+  });
   if (!projectId) return <EmptyState title="Choose a project" body="API keys are bound to one project." />;
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">API keys</h1>
-          <p className="max-w-2xl text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. Edit changes the label and keeps that secret. Scopes changes what the same secret can do. Expiry moves or clears the date and keeps that secret. A key can expire after 1 to 365 days, or stay valid until it is revoked. Revoke keys stops the oldest keys that are still active or expired, up to 20, and keeps each key id and prefix. A key that is already revoked is left alone. A second call revokes none of those keys.</p>
+          <p className="max-w-2xl text-[13px] text-muted">Only a SHA-256 hash is stored. The full secret is shown once. Edit changes the label and keeps that secret. Scopes changes what the same secret can do. Expiry moves or clears the date and keeps that secret. A key can expire after 1 to 365 days, or stay valid until it is revoked. Extend keys moves the oldest keys that already expire, up to 20, including an expired key, and keeps each key id, prefix, and secret. The new date is measured from now. A key that never expires is left alone, and so is a revoked key. A second call extends those keys again. Revoke keys stops the oldest keys that are still active or expired, up to 20, and keeps each key id and prefix. A key that is already revoked is left alone. A second call revokes none of those keys.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <div className="w-24">
+            <TextInput
+              className="h-8"
+              aria-label="Extend for days"
+              inputMode="numeric"
+              value={extendDays}
+              onChange={(event) => setExtendDays(event.target.value)}
+            />
+          </div>
+          <Button variant="secondary" loading={extendKeys.isPending} disabled={!extendDaysReady} onClick={() => extendKeys.mutate()}>Extend keys</Button>
           <Button variant="secondary" loading={revokeKeys.isPending} onClick={() => revokeKeys.mutate()}>Revoke keys</Button>
           <Button onClick={() => setOpen(true)}>Create key</Button>
         </div>
@@ -381,6 +405,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/webhooks/:webhookId/rotate", "Replace the signing secret"],
     ["PATCH", "/projects/:id/api-keys/:keyId", "Change an API key's name, scopes, or expiry and keep its secret"],
     ["POST", "/projects/:id/api-keys/revoke", "Revoke up to 50 keys and keep their ids"],
+    ["POST", "/projects/:id/api-keys/extend", "Extend up to 50 keys that already expire and keep their ids"],
     ["POST", "/projects/:id/queues/:queueId/pause", "Stop workers from taking new jobs"],
     ["POST", "/projects/:id/queues/pause", "Pause up to 50 running queues and keep their ids"],
     ["POST", "/projects/:id/queues/resume", "Resume up to 50 paused queues and keep their ids"],
