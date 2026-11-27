@@ -319,6 +319,11 @@ export const setQueueConcurrencySchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
 
+export const setQueueMaxWaitingSchema = z.object({
+  maxWaiting: z.number().int().min(1).max(100_000),
+  limit: z.number().int().min(1).max(50).default(20),
+});
+
 export const removeMembersSchema = z.object({
   limit: z.number().int().min(1).max(50).default(20),
 });
