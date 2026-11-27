@@ -481,6 +481,7 @@ export function DocsPage() {
     ["POST", "/projects/:id/queues/resume", "Resume up to 50 paused queues and keep their ids"],
     ["POST", "/projects/:id/queues/delete", "Delete up to 50 empty queues and keep their ids"],
     ["POST", "/projects/:id/queues/concurrency", "Set concurrency on up to 50 queues and keep their ids"],
+    ["POST", "/projects/:id/queues/max-waiting", "Set the waiting ceiling on up to 50 queues and keep their ids"],
     ["DELETE", "/projects/:id/queues/:queueId", "Remove an empty queue that nothing still uses"],
   ];
   return (

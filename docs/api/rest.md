@@ -236,6 +236,8 @@ TaskFlow POSTs the same JSON body on every attempt. Headers are `TaskFlow-Delive
 
 `POST /projects/:projectId/queues/concurrency` with `{ "concurrency": 8, "limit": 20 }` replaces the concurrency on the oldest queues, up to 50. Each queue keeps its id, name, description, waiting ceiling, rate limit, and pause state. A paused queue is included. A queue that still has waiting, delayed, active, or paused jobs is included. A queue that already has that concurrency is left alone. A deleted queue is left alone. A second call returns `updated: 0`. Workers pick up the new concurrency on the next sync. `concurrency` outside 1 to 100, or a limit outside 1 to 50, returns `400` `VALIDATION_ERROR`. A reader key returns `403`. The caller needs `queues:write`.
 
+`POST /projects/:projectId/queues/max-waiting` with `{ "maxWaiting": 5000, "limit": 20 }` replaces the waiting ceiling on the oldest queues, up to 50. Each queue keeps its id, name, description, concurrency, rate limit, and pause state. A paused queue is included. A queue that still has waiting, delayed, active, or paused jobs is included, and those jobs stay. A new submit over the ceiling still returns `429` `QUEUE_BACKPRESSURE`. A queue that already has that ceiling is left alone. A deleted queue is left alone. A second call returns `updated: 0`. `maxWaiting` outside 1 to 100,000, or a limit outside 1 to 50, returns `400` `VALIDATION_ERROR`. A reader key returns `403`. The caller needs `queues:write`.
+
 `PATCH` accepts `description`, `concurrency` (1–100), `maxWaiting`, and `rateLimit` (`{ max, duration }` or `null`). `rateLimit.duration` is a window in milliseconds. Concurrency is simultaneous work. The rate limit is admissions per window.
 
 ## Analytics

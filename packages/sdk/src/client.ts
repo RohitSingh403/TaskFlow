@@ -210,6 +210,8 @@ export class TaskFlow {
       this.request<{ deleted: number; skipped: number; queueIds: string[] }>("POST", await this.projectPath("/queues/delete"), { body: input }),
     setConcurrency: async (input: { concurrency: number; limit?: number }) =>
       this.request<{ updated: number; skipped: number; queueIds: string[] }>("POST", await this.projectPath("/queues/concurrency"), { body: input }),
+    setMaxWaiting: async (input: { maxWaiting: number; limit?: number }) =>
+      this.request<{ updated: number; skipped: number; queueIds: string[] }>("POST", await this.projectPath("/queues/max-waiting"), { body: input }),
   };
 
   readonly schedules = {

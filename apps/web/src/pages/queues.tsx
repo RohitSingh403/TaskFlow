@@ -14,6 +14,7 @@ export function QueuesPage() {
   const client = useQueryClient();
   const [open, setOpen] = useState(false);
   const [concurrency, setConcurrency] = useState("8");
+  const [maxWaiting, setMaxWaiting] = useState("5000");
   const [removeId, setRemoveId] = useState<string | null>(null);
   const queues = useQuery({
     queryKey: ["queues", projectId],
@@ -62,6 +63,21 @@ export function QueuesPage() {
     },
     onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not set concurrency"),
   });
+  const maxWaitingValue = Number(maxWaiting);
+  const maxWaitingReady = Number.isInteger(maxWaitingValue) && maxWaitingValue >= 1 && maxWaitingValue <= 100_000;
+  const setMaxWaitingBatch = useMutation({
+    mutationFn: () => api<{ updated: number; skipped: number; queueIds: string[] }>(`/projects/${projectId}/queues/max-waiting`, {
+      method: "POST",
+      body: JSON.stringify({ maxWaiting: maxWaitingValue, limit: 20 }),
+    }),
+    onSuccess: (result) => {
+      const count = result.data.updated;
+      const label = count === 1 ? "Set the ceiling on 1 queue" : `Set the ceiling on ${count} queues`;
+      toast(count === 0 ? "warning" : "success", label);
+      void client.invalidateQueries({ queryKey: ["queues", projectId] });
+    },
+    onError: (reason) => toast("error", reason instanceof ApiError ? reason.message : "Could not set the waiting ceiling"),
+  });
   const deleteQueues = useMutation({
     mutationFn: () => api<{ deleted: number; skipped: number; queueIds: string[] }>(`/projects/${projectId}/queues/delete`, {
       method: "POST",
@@ -89,7 +105,7 @@ export function QueuesPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight">Queues</h1>
-          <p className="max-w-2xl text-[13px] text-muted">Counts are read from BullMQ. Pause queues stops the oldest running queues, up to 20, and keeps each queue id. Resume queues starts the oldest paused queues again, up to 20, and keeps each queue id. Jobs already waiting stay. A queue that is already running is left alone. Set concurrency replaces the concurrency on the oldest queues, up to 20, including a paused queue and a queue that still has jobs, and keeps each queue id, name, and pause state. A queue that already has that concurrency is left alone, and so is a deleted queue. A second call updates none of those queues. Workers pick up the new concurrency on the next sync. Delete removes an empty queue. Waiting, delayed, active, and paused jobs keep it, and so does a schedule or workflow that still uses it. Delete queues removes the oldest queues, up to 20, including a paused queue, and keeps each queue id. A queue that still has waiting, delayed, active, or paused jobs is left alone, and so is a queue a schedule or workflow still uses. A queue that is already deleted is left alone. A second call deletes none of those queues.</p>
+          <p className="max-w-2xl text-[13px] text-muted">Counts are read from BullMQ. Pause queues stops the oldest running queues, up to 20, and keeps each queue id. Resume queues starts the oldest paused queues again, up to 20, and keeps each queue id. Jobs already waiting stay. A queue that is already running is left alone. Set concurrency replaces the concurrency on the oldest queues, up to 20, including a paused queue and a queue that still has jobs, and keeps each queue id, name, and pause state. A queue that already has that concurrency is left alone, and so is a deleted queue. A second call updates none of those queues. Workers pick up the new concurrency on the next sync. Set ceiling replaces the waiting ceiling on the oldest queues, up to 20, including a paused queue and a queue that still has jobs, and keeps each queue id, name, concurrency, and pause state. Jobs already waiting stay. A queue that already has that ceiling is left alone, and so is a deleted queue. A second call changes none of those ceilings. Delete removes an empty queue. Waiting, delayed, active, and paused jobs keep it, and so does a schedule or workflow that still uses it. Delete queues removes the oldest queues, up to 20, including a paused queue, and keeps each queue id. A queue that still has waiting, delayed, active, or paused jobs is left alone, and so is a queue a schedule or workflow still uses. A queue that is already deleted is left alone. A second call deletes none of those queues.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" loading={pauseQueues.isPending} onClick={() => pauseQueues.mutate()}>Pause queues</Button>
@@ -103,6 +119,15 @@ export function QueuesPage() {
             />
           </div>
           <Button variant="secondary" loading={setConcurrencyBatch.isPending} disabled={!concurrencyReady} onClick={() => setConcurrencyBatch.mutate()}>Set concurrency</Button>
+          <div className="w-24">
+            <TextInput
+              aria-label="Waiting ceiling"
+              inputMode="numeric"
+              value={maxWaiting}
+              onChange={(event) => setMaxWaiting(event.target.value)}
+            />
+          </div>
+          <Button variant="secondary" loading={setMaxWaitingBatch.isPending} disabled={!maxWaitingReady} onClick={() => setMaxWaitingBatch.mutate()}>Set ceiling</Button>
           <Button variant="danger" loading={deleteQueues.isPending} onClick={() => deleteQueues.mutate()}>Delete queues</Button>
           <Button onClick={() => setOpen(true)}>New queue</Button>
         </div>
@@ -112,7 +137,7 @@ export function QueuesPage() {
           <table className="w-full min-w-[760px] text-left text-[13px]">
             <thead className="text-[11px] tracking-wide text-faint uppercase">
               <tr className="border-b border-line">
-                {["Queue", "Status", "Waiting", "Active", "Completed", "Failed", "Concurrency", ""].map((heading) => (
+                {["Queue", "Status", "Waiting", "Active", "Completed", "Failed", "Concurrency", "Ceiling", ""].map((heading) => (
                   <th key={heading} className="px-4 py-2 font-medium">{heading}</th>
                 ))}
               </tr>
@@ -127,6 +152,7 @@ export function QueuesPage() {
                   <td className="px-4 py-2">{queue.stats?.completed ?? 0}</td>
                   <td className="px-4 py-2">{queue.stats?.failed ?? 0}</td>
                   <td className="px-4 py-2">{queue.concurrency}</td>
+                  <td className="px-4 py-2">{queue.maxWaiting}</td>
                   <td className="px-4 py-2 text-right">
                     <Button variant="ghost" size="sm" onClick={() => setRemoveId(queue.id)}>Delete</Button>
                     <QueueToggle queue={queue} />
