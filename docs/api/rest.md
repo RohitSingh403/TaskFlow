@@ -124,6 +124,8 @@ Lists also accept `dismissed=true` or `dismissed=false`. Omitting it returns bot
 
 `POST /projects/:projectId/schedules/delete` with `{ "limit": 20 }` deletes the oldest schedules, up to 50. Each schedule keeps its id, cron, and next run time. The schedule is paused and leaves the list. A paused schedule is included. A schedule that is already deleted is left alone. A second call returns `deleted: 0`. A limit outside 1 to 50 returns `400` `VALIDATION_ERROR`. A reader key returns `403`.
 
+`POST /projects/:projectId/schedules/timezone` with `{ "timeZone": "Asia/Kolkata", "limit": 20 }` replaces the time zone on the oldest schedules, up to 50. Each schedule keeps its id, name, cron, queue, payload, and pause state. `nextRunAt` is calculated again from the current time. A paused schedule is included. A schedule that already uses that time zone is left alone. A deleted schedule is left alone. A second call returns `updated: 0`. An unknown time zone returns `400` `INVALID_SCHEDULE` and changes none of the schedules. An empty time zone, a time zone longer than 80 characters, or a limit outside 1 to 50 returns `400` `VALIDATION_ERROR`. A reader key returns `403`. The caller needs `jobs:write`.
+
 `POST /projects/:projectId/schedules/:scheduleId/run` queues one job immediately. It does not change `nextRunAt`. A paused schedule can still be run. The job counts toward the monthly allowance. A second call creates another job. If the scheduler is down for more than a minute, missed cron ticks are still skipped.
 
 ## Workflows
