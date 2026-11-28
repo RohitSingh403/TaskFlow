@@ -17,6 +17,7 @@ import {
   RESUME_SCHEDULES_LIMIT,
   RUN_SCHEDULES_LIMIT,
   DELETE_SCHEDULES_LIMIT,
+  SET_SCHEDULE_TIME_ZONE_LIMIT,
   findUnsafeKey,
   handlerSchemas,
   isHandlerName,
@@ -309,6 +310,36 @@ export async function triggerSchedule(project: ProjectDoc, schedule: ScheduleDoc
     data: { jobId: job.publicId, status: job.status, queue: job.queueName },
   });
   return job;
+}
+
+export async function setScheduleTimeZones(project: ProjectDoc, input: { timeZone: string; limit?: number }, auth: AuthContext) {
+  const limit = Math.min(input.limit ?? 20, SET_SCHEDULE_TIME_ZONE_LIMIT);
+  const selected = await Schedule.find({
+    projectId: project._id,
+    deletedAt: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(limit);
+  const scheduleIds: string[] = [];
+  let skipped = 0;
+  for (const schedule of selected) {
+    try {
+      const current = await getSchedule(project, schedule.publicId);
+      if (current.timeZone === input.timeZone) {
+        skipped += 1;
+        continue;
+      }
+      await updateSchedule(project, current, { timeZone: input.timeZone }, auth);
+      scheduleIds.push(current.publicId);
+    } catch (error) {
+      if (error instanceof AppError && (error.status === 404 || error.status === 409)) {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+  return { updated: scheduleIds.length, skipped, scheduleIds };
 }
 
 export async function deleteSchedules(project: ProjectDoc, input: { limit?: number }, auth: AuthContext) {
